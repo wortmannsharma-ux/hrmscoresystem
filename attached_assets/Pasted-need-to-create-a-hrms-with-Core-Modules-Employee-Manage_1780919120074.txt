@@ -1,0 +1,259 @@
+need to create a hrms with Core Modules
+
+Employee Management
+Employee master database
+Department & designation management
+Reporting manager hierarchy
+Employee documents
+Joining date, salary structure, bank details
+Employee ID generation
+Role-based access control
+Roles
+Super Admin
+HR
+Manager
+Team Leader
+Field Executive
+Desk Employee
+Accounts/Payroll
+Smart Attendance System
+Day Start (Mandatory)
+Employee cannot start the day without:
+Desk Employee
+Selfie capture
+GPS location verification (optional)
+Login timestamp
+Field Executive
+Selfie capture
+Live GPS capture
+Location validation
+
+Attendance status:
+Present
+Half Day
+Late
+Absent
+On Leave
+Work From Home
+Outdoor Duty
+Geo-Fencing Attendance
+
+HR can define:
+Office Radius = 5 meters / 10 meters / 50 meters
+Multiple office locations
+
+Example:
+Office Location:
+
+Latitude
+Longitude
+
+Rule:
+
+If employee is outside allowed radius:
+
+Attendance blocked
+OR
+Attendance requires manager approval
+
+Configurable by HR.
+Late Login Rules
+HR can configure:
+Login Time Status
+Before 09:30 AM Present
+09:31–11:00 AM Late Mark
+After 11:00 AM Half Day
+After 01:00 PM Approval Required
+
+Automatic notifications to:
+Employee
+Reporting Manager
+HR
+
+Field Executive Tracking
+Live Location Tracking
+Features:
+Real-time GPS tracking
+Route mapping
+Last known location
+Total distance travelled
+Travel timeline
+Manager can see:
+Current location
+Travel path
+Visit history
+Idle time
+Travel Summary
+
+Daily calculation:
+Total KM travelled
+Start location
+End location
+Number of visits
+Travel duration
+Example:
+Date: 08-Jun-2026
+Distance: 76 KM
+Visits: 14
+Working Hours: 8.5
+Route Covered: Delhi → Noida → Ghaziabad
+
+Vendor Visit Management
+This is one of the most important modules.
+Visit Creation
+Executive reaches vendor location.
+Mandatory:
+GPS validation
+Selfie with vendor
+Vendor name
+Visit remarks
+Only then visit is counted.
+Visit Verification
+Visit will be valid only if:
+✓ Within GPS radius (e.g., 50 meters) set by manager
+✓ Selfie uploaded
+✓ Timestamp available
+✓ Vendor selected
+Otherwise:
+Status = Invalid Visit
+Vendor Visit Data
+Store:
+Vendor Name
+Contact Person
+Mobile Number
+Location
+Selfie
+Meeting Notes
+Order Value (optional)
+Next Follow-up Date
+
+End of Day Report (EOD)
+Before logout employee must submit:
+Daily Summary
+Number of visits
+Total KM travelled
+Leads generated
+Orders collected
+Collection amount
+Remarks
+Manager approval workflow available. also when ever employee can trying to logout (Day End) EOD form must be submited with auto fetched details and after submited it'll be marked day end (logout)
+
+Leave Management
+Casual Leave
+Sick Leave
+Earned Leave
+Unpaid Leave
+Workflow:
+Employee → Manager → HR
+Features:
+Leave balance
+Leave calendar
+Holiday calendar
+
+TA / DA / Expense Management
+Expense Categories
+Fuel
+Food
+Hotel
+Toll
+Parking
+Miscellaneous
+Expense Submission
+Employee uploads:
+Amount
+Bill photo
+Category
+Description
+Workflow:
+Employee → Manager Approval → Accounts Approval
+
+Auto Travel Expense
+Can calculate:
+Distance × Company Rate
+Example:
+75 KM × ₹5/KM
+Travel Reimbursement = ₹375
+
+Payroll Management
+Salary Structure
+Basic
+HRA
+Special Allowance
+Conveyance
+Bonus
+Incentives
+Automatic Deductions
+PF
+ESI
+TDS
+Professional Tax
+
+Attendance Integration
+Salary generated based on:
+Present days
+Half days
+Leave
+LOP
+
+Payslip Generation
+Features:
+PDF Payslip
+Salary Register
+Bank Transfer Sheet
+Form 16 support
+
+Recruitment & ATS (Applicant Tracking System)
+This directly addresses your requirement to collect job applications from your website.
+Career Portal
+Candidates can:
+Apply online
+Upload CV
+Upload documents
+Fill application form
+HR can view:
+
+Applicant Name
+Mobile
+Email
+Position Applied
+Experience
+Resume
+
+Status Flow:
+Applied → Shortlisted → Interview → Selected → Joined → Rejected
+
+Website Integration
+Connect with:
+Company Career Page
+Job Application Form
+External Job Portals
+LinkedIn Integration
+Email Resume Collection
+Applications automatically enter ATS.
+
+Manager Dashboard
+
+Manager can see:
+
+Today's attendance
+Active field executives
+Live location
+Employee travel distance
+Pending approvals
+Visit reports
+Expense approvals
+Leave requests
+
+HR Dashboard
+
+HR can see:
+
+Attendance summary
+Payroll summary
+Recruitment pipeline
+Employee strength
+Joining/Exit reports
+Late attendance reports
+Leave reports
+
+and do suggest more if we can it should be stylish and modern

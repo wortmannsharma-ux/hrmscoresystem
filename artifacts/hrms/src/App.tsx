@@ -1,0 +1,65 @@
+import { Switch, Route, Router as WouterRouter } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import NotFound from "@/pages/not-found";
+import { AppLayout } from "@/components/layout/app-layout";
+import Dashboard from "@/pages/dashboard";
+import Employees from "@/pages/employees";
+import EmployeeProfile from "@/pages/employee-profile";
+import Departments from "@/pages/departments";
+import Attendance from "@/pages/attendance";
+import Tracking from "@/pages/tracking";
+import Visits from "@/pages/visits";
+import Leaves from "@/pages/leaves";
+import Expenses from "@/pages/expenses";
+import Payroll from "@/pages/payroll";
+import Recruitment from "@/pages/recruitment";
+import Settings from "@/pages/settings";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
+
+function Router() {
+  return (
+    <AppLayout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/employees/new" component={Employees} />
+        <Route path="/employees/:id" component={EmployeeProfile} />
+        <Route path="/employees" component={Employees} />
+        <Route path="/departments" component={Departments} />
+        <Route path="/attendance" component={Attendance} />
+        <Route path="/field-tracking" component={Tracking} />
+        <Route path="/visits" component={Visits} />
+        <Route path="/leaves" component={Leaves} />
+        <Route path="/expenses" component={Expenses} />
+        <Route path="/payroll" component={Payroll} />
+        <Route path="/recruitment" component={Recruitment} />
+        <Route path="/settings" component={Settings} />
+        <Route component={NotFound} />
+      </Switch>
+    </AppLayout>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
