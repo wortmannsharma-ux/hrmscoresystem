@@ -48,6 +48,20 @@ export const locationTracksTable = pgTable("location_tracks", {
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const attendanceSettingsTable = pgTable("attendance_settings", {
+  id: serial("id").primaryKey(),
+  presentBeforeMins: integer("present_before_mins").notNull().default(570),
+  lateBeforeMins: integer("late_before_mins").notNull().default(660),
+  halfDayBeforeMins: integer("half_day_before_mins").notNull().default(780),
+  geoFencingEnabled: boolean("geo_fencing_enabled").notNull().default(false),
+  outsideRadiusAction: text("outside_radius_action").notNull().default("warn"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertAttendanceSettingsSchema = createInsertSchema(attendanceSettingsTable).omit({ id: true, updatedAt: true });
+export type InsertAttendanceSettings = z.infer<typeof insertAttendanceSettingsSchema>;
+export type AttendanceSettings = typeof attendanceSettingsTable.$inferSelect;
+
 export const insertAttendanceSchema = createInsertSchema(attendanceTable).omit({ id: true, createdAt: true });
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type Attendance = typeof attendanceTable.$inferSelect;
