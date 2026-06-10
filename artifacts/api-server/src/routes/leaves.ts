@@ -11,6 +11,7 @@ import {
   CreateHolidayBody,
   ListHolidaysQueryParams,
 } from "@workspace/api-zod";
+import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -23,7 +24,7 @@ function fmtLeave(l: typeof leavesTable.$inferSelect & { employeeName?: string |
   };
 }
 
-router.get("/leaves", async (req, res): Promise<void> => {
+router.get("/leaves", protect, async (req, res): Promise<void> => {
   const query = ListLeavesQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -61,7 +62,7 @@ router.get("/leaves", async (req, res): Promise<void> => {
   res.json(rows.map((l) => ({ ...l, approverName: null, createdAt: l.createdAt.toISOString() })));
 });
 
-router.post("/leaves", async (req, res): Promise<void> => {
+router.post("/leaves", protect, async (req, res): Promise<void> => {
   const parsed = CreateLeaveBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -76,7 +77,7 @@ router.post("/leaves", async (req, res): Promise<void> => {
   res.status(201).json(fmtLeave({ ...leave, employeeName: null, approverName: null }));
 });
 
-router.get("/leaves/:id", async (req, res): Promise<void> => {
+router.get("/leaves/:id", protect, async (req, res): Promise<void> => {
   const params = GetLeaveParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -90,7 +91,7 @@ router.get("/leaves/:id", async (req, res): Promise<void> => {
   res.json(fmtLeave({ ...leave, employeeName: null, approverName: null }));
 });
 
-router.patch("/leaves/:id/approve", async (req, res): Promise<void> => {
+router.patch("/leaves/:id/approve", protect, authorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER"), async (req, res): Promise<void> => {
   const params = ApproveLeaveParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -119,7 +120,7 @@ router.patch("/leaves/:id/approve", async (req, res): Promise<void> => {
   res.json(fmtLeave({ ...leave, employeeName: null, approverName: null }));
 });
 
-router.get("/leaves/balance/:employeeId", async (req, res): Promise<void> => {
+router.get("/leaves/balance/:employeeId", protect, async (req, res): Promise<void> => {
   const params = GetLeaveBalanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -148,7 +149,7 @@ router.get("/leaves/balance/:employeeId", async (req, res): Promise<void> => {
 });
 
 // ── Holidays ──────────────────────────────────────────
-router.get("/holidays", async (req, res): Promise<void> => {
+router.get("/holidays", protect, async (req, res): Promise<void> => {
   const query = ListHolidaysQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -163,7 +164,7 @@ router.get("/holidays", async (req, res): Promise<void> => {
   res.json(rows.map((h) => ({ ...h, createdAt: h.createdAt.toISOString() })));
 });
 
-router.post("/holidays", async (req, res): Promise<void> => {
+router.post("/holidays", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = CreateHolidayBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -178,7 +179,7 @@ router.post("/holidays", async (req, res): Promise<void> => {
   res.status(201).json({ ...holiday, createdAt: holiday.createdAt.toISOString() });
 });
 
-router.delete("/holidays/:id", async (req, res): Promise<void> => {
+router.delete("/holidays/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });

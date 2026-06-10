@@ -1,243 +1,395 @@
-import {
-  db,
-  departmentsTable, designationsTable, employeesTable,
-  attendanceTable, leavesTable, expensesTable,
-  vendorsTable, visitsTable, salaryStructuresTable,
-  payrollTable, jobsTable, applicantsTable, holidaysTable,
-  officeLocationsTable,
-} from "@workspace/db";
-import { sql } from "drizzle-orm";
+/**
+ * HRMS Seed Script
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Creates login users + sample org data so you can immediately sign in.
+ *
+ * HOW IT WORKS
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  The app has TWO separate tables:
+ *
+ *  ┌──────────┐         ┌───────────┐
+ *  │  users   │────────▶│ employees │
+ *  │ (login)  │ (opt.)  │ (HR data) │
+ *  └──────────┘         └───────────┘
+ *
+ *  • `users`     – who can LOG IN. Has email + password + role.
+ *  • `employees` – HR profile (salary, department, bank details…).
+ *  • A user can optionally be LINKED to an employee row via `employee_id`.
+ *    SUPER_ADMIN doesn't need a linked employee (it's a system account).
+ *    HR/MANAGER users should be linked to their employee record so the
+ *    app can show their name, department, etc.
+ *
+ * RUN (from workspace root)
+ * ─────────────────────────────────────────────────────────────────────────────
+ *   pnpm --filter @workspace/scripts seed
+ *
+ * or directly:
+ *   cd scripts && npx tsx --env-file=../.env src/seed.ts
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 
-async function seed() {
-  console.log("Seeding HRMS database...");
+// Load DATABASE_URL from .env before importing @workspace/db
+import { config } from "dotenv";
+import { resolve } from "path";
+import { fileURLToPath } from "url";
 
-  // Departments
-  const [deptHR] = await db.insert(departmentsTable).values({ name: "Human Resources", description: "HR and People Ops" }).returning();
-  const [deptSales] = await db.insert(departmentsTable).values({ name: "Sales", description: "Sales and Business Development" }).returning();
-  const [deptOps] = await db.insert(departmentsTable).values({ name: "Operations", description: "Operations and Logistics" }).returning();
-  const [deptIT] = await db.insert(departmentsTable).values({ name: "Technology", description: "IT and Software" }).returning();
-  const [deptAccounts] = await db.insert(departmentsTable).values({ name: "Accounts", description: "Finance and Accounts" }).returning();
-  console.log("Departments created");
-
-  // Designations
-  const [desigHRM] = await db.insert(designationsTable).values({ name: "HR Manager", departmentId: deptHR.id, level: 3 }).returning();
-  const [desigHRE] = await db.insert(designationsTable).values({ name: "HR Executive", departmentId: deptHR.id, level: 2 }).returning();
-  const [desigSM] = await db.insert(designationsTable).values({ name: "Sales Manager", departmentId: deptSales.id, level: 3 }).returning();
-  const [desigSE] = await db.insert(designationsTable).values({ name: "Sales Executive", departmentId: deptSales.id, level: 2 }).returning();
-  const [desigFE] = await db.insert(designationsTable).values({ name: "Field Executive", departmentId: deptSales.id, level: 1 }).returning();
-  const [desigOPM] = await db.insert(designationsTable).values({ name: "Operations Manager", departmentId: deptOps.id, level: 3 }).returning();
-  const [desigTL] = await db.insert(designationsTable).values({ name: "Team Leader", departmentId: deptSales.id, level: 2 }).returning();
-  const [desigDev] = await db.insert(designationsTable).values({ name: "Software Developer", departmentId: deptIT.id, level: 2 }).returning();
-  const [desigAcc] = await db.insert(designationsTable).values({ name: "Accountant", departmentId: deptAccounts.id, level: 2 }).returning();
-  console.log("Designations created");
-
-  // Employees
-  const [emp1] = await db.insert(employeesTable).values({
-    employeeId: "EMP001", firstName: "Ravi", lastName: "Kumar", email: "ravi.kumar@company.com",
-    phone: "9876543210", role: "HR", status: "active", joiningDate: "2022-01-15",
-    departmentId: deptHR.id, designationId: desigHRM.id,
-    bankAccount: "1234567890", ifscCode: "HDFC0001234", bankName: "HDFC Bank",
-    panNumber: "ABCPK1234D", address: "123, MG Road, Bengaluru",
-  }).returning();
-
-  const [emp2] = await db.insert(employeesTable).values({
-    employeeId: "EMP002", firstName: "Priya", lastName: "Sharma", email: "priya.sharma@company.com",
-    phone: "9876543211", role: "Manager", status: "active", joiningDate: "2021-06-01",
-    departmentId: deptSales.id, designationId: desigSM.id,
-    bankAccount: "0987654321", ifscCode: "ICIC0001234", bankName: "ICICI Bank",
-  }).returning();
-
-  const [emp3] = await db.insert(employeesTable).values({
-    employeeId: "EMP003", firstName: "Amit", lastName: "Singh", email: "amit.singh@company.com",
-    phone: "9876543212", role: "Field Executive", status: "active", joiningDate: "2023-03-10",
-    departmentId: deptSales.id, designationId: desigFE.id, managerId: emp2.id,
-  }).returning();
-
-  const [emp4] = await db.insert(employeesTable).values({
-    employeeId: "EMP004", firstName: "Sunita", lastName: "Verma", email: "sunita.verma@company.com",
-    phone: "9876543213", role: "Field Executive", status: "active", joiningDate: "2023-07-01",
-    departmentId: deptSales.id, designationId: desigFE.id, managerId: emp2.id,
-  }).returning();
-
-  const [emp5] = await db.insert(employeesTable).values({
-    employeeId: "EMP005", firstName: "Rahul", lastName: "Gupta", email: "rahul.gupta@company.com",
-    phone: "9876543214", role: "Desk Employee", status: "active", joiningDate: "2022-09-15",
-    departmentId: deptIT.id, designationId: desigDev.id,
-  }).returning();
-
-  const [emp6] = await db.insert(employeesTable).values({
-    employeeId: "EMP006", firstName: "Anjali", lastName: "Patel", email: "anjali.patel@company.com",
-    phone: "9876543215", role: "HR", status: "active", joiningDate: "2023-01-20",
-    departmentId: deptHR.id, designationId: desigHRE.id, managerId: emp1.id,
-  }).returning();
-
-  const [emp7] = await db.insert(employeesTable).values({
-    employeeId: "EMP007", firstName: "Vikram", lastName: "Mehta", email: "vikram.mehta@company.com",
-    phone: "9876543216", role: "Field Executive", status: "active", joiningDate: "2024-01-10",
-    departmentId: deptSales.id, designationId: desigFE.id, managerId: emp2.id,
-  }).returning();
-
-  const [emp8] = await db.insert(employeesTable).values({
-    employeeId: "EMP008", firstName: "Deepa", lastName: "Nair", email: "deepa.nair@company.com",
-    phone: "9876543217", role: "Accounts", status: "active", joiningDate: "2022-04-01",
-    departmentId: deptAccounts.id, designationId: desigAcc.id,
-  }).returning();
-  console.log("Employees created");
-
-  // Salary Structures
-  await db.insert(salaryStructuresTable).values([
-    { employeeId: emp1.id, effectiveFrom: "2022-01-15", basic: 35000, hra: 14000, specialAllowance: 8000, conveyance: 2000 },
-    { employeeId: emp2.id, effectiveFrom: "2021-06-01", basic: 45000, hra: 18000, specialAllowance: 12000, conveyance: 3000 },
-    { employeeId: emp3.id, effectiveFrom: "2023-03-10", basic: 20000, hra: 8000, specialAllowance: 5000, conveyance: 1500 },
-    { employeeId: emp4.id, effectiveFrom: "2023-07-01", basic: 20000, hra: 8000, specialAllowance: 5000, conveyance: 1500 },
-    { employeeId: emp5.id, effectiveFrom: "2022-09-15", basic: 30000, hra: 12000, specialAllowance: 8000, conveyance: 2000 },
-    { employeeId: emp6.id, effectiveFrom: "2023-01-20", basic: 22000, hra: 8800, specialAllowance: 5000, conveyance: 1500 },
-    { employeeId: emp7.id, effectiveFrom: "2024-01-10", basic: 18000, hra: 7200, specialAllowance: 4000, conveyance: 1200 },
-    { employeeId: emp8.id, effectiveFrom: "2022-04-01", basic: 28000, hra: 11200, specialAllowance: 6000, conveyance: 1800 },
-  ]);
-  console.log("Salary structures created");
-
-  // Attendance — last 30 days
-  const today = new Date();
-  const employees = [emp1, emp2, emp3, emp4, emp5, emp6, emp7, emp8];
-  const statuses = ["Present", "Present", "Present", "Present", "Late", "Half Day", "Absent", "WFH", "Outdoor Duty"];
-
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue; // skip weekends
-
-    const dateStr = date.toISOString().split("T")[0];
-
-    for (const emp of employees) {
-      const isField = [emp3, emp4, emp7].map((e) => e.id).includes(emp.id);
-      const status = isField
-        ? ["Outdoor Duty", "Outdoor Duty", "Present", "Present", "Late", "Absent"][Math.floor(Math.random() * 6)]
-        : statuses[Math.floor(Math.random() * statuses.length)];
-
-      const checkIn = new Date(date);
-      checkIn.setHours(9 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 60));
-      const checkOut = new Date(checkIn);
-      checkOut.setHours(checkIn.getHours() + 7 + Math.floor(Math.random() * 2));
-
-      await db.insert(attendanceTable).values({
-        employeeId: emp.id,
-        date: dateStr,
-        status,
-        checkInTime: status === "Absent" ? undefined : checkIn,
-        checkOutTime: status === "Absent" ? undefined : checkOut,
-        workingHours: status === "Absent" ? undefined : 7 + Math.random() * 2,
-        eodSubmitted: isField && status !== "Absent",
-        eodVisits: isField && status !== "Absent" ? Math.floor(Math.random() * 8) + 2 : undefined,
-        eodKm: isField && status !== "Absent" ? Math.floor(Math.random() * 50) + 20 : undefined,
-        eodLeads: isField && status !== "Absent" ? Math.floor(Math.random() * 5) : undefined,
-        eodOrders: isField && status !== "Absent" ? Math.floor(Math.random() * 3) : undefined,
-        eodCollection: isField && status !== "Absent" ? Math.floor(Math.random() * 50000) + 5000 : undefined,
-        distanceTravelled: isField && status !== "Absent" ? Math.floor(Math.random() * 50) + 20 : undefined,
-      }).onConflictDoNothing();
-    }
-  }
-  console.log("Attendance seeded");
-
-  // Leaves
-  await db.insert(leavesTable).values([
-    { employeeId: emp3.id, leaveType: "Sick", fromDate: "2026-05-20", toDate: "2026-05-21", days: 2, reason: "Fever and cold", status: "Approved", hrApproval: "approve", managerApproval: "approve", approvedBy: emp1.id },
-    { employeeId: emp4.id, leaveType: "Casual", fromDate: "2026-06-10", toDate: "2026-06-10", days: 1, reason: "Personal work", status: "Pending" },
-    { employeeId: emp5.id, leaveType: "Earned", fromDate: "2026-06-15", toDate: "2026-06-18", days: 4, reason: "Family vacation", status: "Pending" },
-    { employeeId: emp6.id, leaveType: "Sick", fromDate: "2026-05-28", toDate: "2026-05-28", days: 1, reason: "Doctor appointment", status: "Approved", hrApproval: "approve", managerApproval: "approve", approvedBy: emp1.id },
-    { employeeId: emp7.id, leaveType: "Casual", fromDate: "2026-06-20", toDate: "2026-06-20", days: 1, reason: "Marriage in family", status: "Rejected", rejectionReason: "Team understaffed" },
-  ]);
-  console.log("Leaves seeded");
-
-  // Expenses
-  await db.insert(expensesTable).values([
-    { employeeId: emp3.id, category: "Fuel", amount: 850, date: "2026-06-05", description: "Field visit fuel", isAutoTravel: true, travelKm: 85, travelRate: 10, status: "Pending" },
-    { employeeId: emp4.id, category: "Food", amount: 320, date: "2026-06-04", description: "Client lunch", status: "Manager Approved", managerApproval: "approve", approvedBy: emp2.id },
-    { employeeId: emp7.id, category: "Toll", amount: 180, date: "2026-06-06", description: "Highway toll", isAutoTravel: false, status: "Pending" },
-    { employeeId: emp3.id, category: "Hotel", amount: 2500, date: "2026-05-30", description: "Outstation client visit", status: "Pending" },
-    { employeeId: emp5.id, category: "Miscellaneous", amount: 450, date: "2026-06-01", description: "Office supplies", status: "Manager Approved", managerApproval: "approve", approvedBy: emp2.id },
-  ]);
-  console.log("Expenses seeded");
-
-  // Vendors
-  const [v1] = await db.insert(vendorsTable).values({ name: "Sharma Distributors", contactPerson: "Rakesh Sharma", mobile: "9988776655", email: "rakesh@sharma.com", address: "45, Industrial Area, Pune", lat: 18.5204, lng: 73.8567, radius: 100 }).returning();
-  const [v2] = await db.insert(vendorsTable).values({ name: "Delhi Traders Co", contactPerson: "Mohit Agarwal", mobile: "9988776644", email: "mohit@delhitraders.com", address: "12, Connaught Place, Delhi", lat: 28.6315, lng: 77.2167, radius: 150 }).returning();
-  const [v3] = await db.insert(vendorsTable).values({ name: "Mumbai Wholesale Hub", contactPerson: "Suresh Bhai", mobile: "9988776633", email: "suresh@mumbaiwhls.com", address: "78, Crawford Market, Mumbai", lat: 18.9489, lng: 72.8341, radius: 200 }).returning();
-  const [v4] = await db.insert(vendorsTable).values({ name: "Bangalore Tech Supplies", contactPerson: "Rajan Nair", mobile: "9988776622", email: "rajan@bangtechsup.com", address: "23, Electronic City, Bengaluru", lat: 12.8399, lng: 77.6770, radius: 100 }).returning();
-  const [v5] = await db.insert(vendorsTable).values({ name: "Hyderabad Enterprise", contactPerson: "Kishore Reddy", mobile: "9988776611", email: "kishore@hydent.com", address: "56, HITEC City, Hyderabad", lat: 17.4435, lng: 78.3772, radius: 120 }).returning();
-  console.log("Vendors created");
-
-  // Visits
-  const recentDates = ["2026-06-05", "2026-06-04", "2026-06-03", "2026-06-02", "2026-06-01"];
-  for (const emp of [emp3, emp4, emp7]) {
-    for (const vDate of recentDates) {
-      const vendors = [v1, v2, v3, v4, v5];
-      const vendor = vendors[Math.floor(Math.random() * vendors.length)];
-      await db.insert(visitsTable).values({
-        employeeId: emp.id,
-        vendorId: vendor.id,
-        visitDate: vDate,
-        checkInTime: new Date(`${vDate}T10:00:00Z`),
-        selfieUrl: "https://placehold.co/100x100",
-        lat: vendor.lat ? vendor.lat + (Math.random() - 0.5) * 0.01 : undefined,
-        lng: vendor.lng ? vendor.lng + (Math.random() - 0.5) * 0.01 : undefined,
-        remarks: "Client meeting",
-        orderValue: Math.floor(Math.random() * 50000) + 10000,
-        status: Math.random() > 0.2 ? "Valid" : "Invalid",
-        invalidReason: undefined,
-      });
-    }
-  }
-  console.log("Visits seeded");
-
-  // Jobs
-  const [job1] = await db.insert(jobsTable).values({ title: "Senior Sales Executive", departmentId: deptSales.id, description: "Looking for experienced sales executive", location: "Mumbai", experienceMin: 2, experienceMax: 5, salaryMin: 25000, salaryMax: 40000, openings: 3, postedDate: "2026-05-15", status: "Open" }).returning();
-  const [job2] = await db.insert(jobsTable).values({ title: "HR Executive", departmentId: deptHR.id, description: "HR executive for talent acquisition", location: "Bengaluru", experienceMin: 1, experienceMax: 3, salaryMin: 20000, salaryMax: 30000, openings: 1, postedDate: "2026-06-01", status: "Open" }).returning();
-  const [job3] = await db.insert(jobsTable).values({ title: "Field Executive", departmentId: deptSales.id, description: "Field sales executive for Delhi NCR", location: "Delhi", experienceMin: 0, experienceMax: 2, salaryMin: 15000, salaryMax: 22000, openings: 5, postedDate: "2026-05-20", status: "Open" }).returning();
-  console.log("Jobs created");
-
-  // Applicants
-  await db.insert(applicantsTable).values([
-    { jobId: job1.id, name: "Karan Malhotra", email: "karan@gmail.com", phone: "9900112233", experience: 3, currentCtc: 28000, expectedCtc: 38000, noticePeriod: 30, status: "Shortlisted", source: "LinkedIn" },
-    { jobId: job1.id, name: "Neha Joshi", email: "neha@gmail.com", phone: "9900112244", experience: 4, currentCtc: 35000, expectedCtc: 42000, noticePeriod: 60, status: "Interview", source: "Naukri", interviewDate: "2026-06-12" },
-    { jobId: job1.id, name: "Rohit Bansal", email: "rohit@gmail.com", phone: "9900112255", experience: 2, currentCtc: 22000, expectedCtc: 30000, status: "Applied", source: "Direct" },
-    { jobId: job2.id, name: "Shruti Kapoor", email: "shruti@gmail.com", phone: "9900112266", experience: 2, currentCtc: 20000, expectedCtc: 28000, status: "Shortlisted", source: "LinkedIn" },
-    { jobId: job3.id, name: "Raj Yadav", email: "raj@gmail.com", phone: "9900112277", experience: 1, currentCtc: 14000, expectedCtc: 18000, status: "Applied", source: "Newspaper" },
-    { jobId: job3.id, name: "Pooja Singh", email: "pooja@gmail.com", phone: "9900112288", experience: 0, currentCtc: 0, expectedCtc: 16000, status: "Selected", source: "Campus" },
-  ]);
-  console.log("Applicants seeded");
-
-  // Holidays
-  await db.insert(holidaysTable).values([
-    { name: "Republic Day", date: "2026-01-26", type: "National", isOptional: false },
-    { name: "Holi", date: "2026-03-20", type: "National", isOptional: false },
-    { name: "Good Friday", date: "2026-04-03", type: "Optional", isOptional: true },
-    { name: "Dr. Ambedkar Jayanti", date: "2026-04-14", type: "National", isOptional: false },
-    { name: "Labour Day", date: "2026-05-01", type: "National", isOptional: false },
-    { name: "Eid ul-Fitr", date: "2026-03-30", type: "Optional", isOptional: true },
-    { name: "Independence Day", date: "2026-08-15", type: "National", isOptional: false },
-    { name: "Ganesh Chaturthi", date: "2026-08-23", type: "Optional", isOptional: true },
-    { name: "Gandhi Jayanti", date: "2026-10-02", type: "National", isOptional: false },
-    { name: "Dussehra", date: "2026-10-22", type: "Optional", isOptional: true },
-    { name: "Diwali", date: "2026-11-11", type: "National", isOptional: false },
-    { name: "Christmas", date: "2026-12-25", type: "Optional", isOptional: true },
-  ]);
-  console.log("Holidays seeded");
-
-  // Office locations
-  await db.insert(officeLocationsTable).values([
-    { name: "HQ - Bengaluru", lat: 12.9716, lng: 77.5946, radius: 100, requireApproval: false, isActive: true },
-    { name: "Branch - Mumbai", lat: 19.0760, lng: 72.8777, radius: 150, requireApproval: false, isActive: true },
-    { name: "Branch - Delhi", lat: 28.6139, lng: 77.2090, radius: 120, requireApproval: true, isActive: true },
-  ]);
-  console.log("Office locations seeded");
-
-  console.log("Seeding complete!");
-  process.exit(0);
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+// Try ../../.env (scripts/src → workspace root)
+config({ path: resolve(__dirname, "../../.env") });
+// Fallback: api-server env
+if (!process.env.DATABASE_URL) {
+  config({ path: resolve(__dirname, "../../../artifacts/api-server/.env") });
 }
 
-seed().catch((err) => {
-  console.error("Seed failed:", err);
+if (!process.env.DATABASE_URL) {
+  console.error("\n❌  DATABASE_URL is not set. Make sure .env exists at the workspace root.\n");
   process.exit(1);
-});
+}
+
+import bcrypt from "bcryptjs";
+import pg from "pg";
+const { Pool } = pg;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+
+// ── upsert helpers (raw SQL — avoids drizzle error wrapping) ──────────────────
+
+async function upsertUser(data: {
+  userId: string;
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+}): Promise<number> {
+  const hash = await bcrypt.hash(data.password, 10);
+
+  const existing = await pool.query(
+    "SELECT id FROM users WHERE email = $1",
+    [data.email]
+  );
+
+  if (existing.rows.length > 0) {
+    await pool.query(
+      "UPDATE users SET password = $1, role = $2, is_active = true WHERE email = $3",
+      [hash, data.role, data.email]
+    );
+    console.log(`   ↻  Updated user  : ${data.email}  (${data.role})`);
+    return existing.rows[0].id;
+  }
+
+  const result = await pool.query(
+    `INSERT INTO users (user_id, name, email, password, role, is_active)
+     VALUES ($1, $2, $3, $4, $5, true) RETURNING id`,
+    [data.userId, data.name, data.email, hash, data.role]
+  );
+
+  console.log(`   ✓  Created user  : ${data.email}  (${data.role})`);
+  return result.rows[0].id;
+}
+
+async function upsertDepartment(name: string, description: string): Promise<number> {
+  const existing = await pool.query("SELECT id FROM departments WHERE name = $1", [name]);
+  if (existing.rows.length > 0) {
+    console.log(`   –  Exists dept   : ${name}`);
+    return existing.rows[0].id;
+  }
+  const result = await pool.query(
+    "INSERT INTO departments (name, description) VALUES ($1, $2) RETURNING id",
+    [name, description]
+  );
+  console.log(`   ✓  Created dept  : ${name}`);
+  return result.rows[0].id;
+}
+
+async function upsertDesignation(name: string, departmentId: number, level: number): Promise<number> {
+  const existing = await pool.query("SELECT id FROM designations WHERE name = $1", [name]);
+  if (existing.rows.length > 0) {
+    console.log(`   –  Exists desig  : ${name}`);
+    return existing.rows[0].id;
+  }
+  const result = await pool.query(
+    "INSERT INTO designations (name, department_id, level) VALUES ($1, $2, $3) RETURNING id",
+    [name, departmentId, level]
+  );
+  console.log(`   ✓  Created desig : ${name}`);
+  return result.rows[0].id;
+}
+
+async function upsertEmployee(data: {
+  employeeId: string; firstName: string; lastName: string;
+  email: string; phone: string; role: string;
+  departmentId: number; designationId: number;
+}): Promise<number> {
+  const existing = await pool.query("SELECT id FROM employees WHERE email = $1", [data.email]);
+  if (existing.rows.length > 0) {
+    console.log(`   –  Exists emp    : ${data.firstName} ${data.lastName}`);
+    return existing.rows[0].id;
+  }
+  const today = new Date().toISOString().split("T")[0]!;
+  const result = await pool.query(
+    `INSERT INTO employees
+       (employee_id, first_name, last_name, email, phone, role, status, joining_date, department_id, designation_id)
+     VALUES ($1,$2,$3,$4,$5,$6,'active',$7,$8,$9) RETURNING id`,
+    [data.employeeId, data.firstName, data.lastName, data.email,
+     data.phone, data.role, today, data.departmentId, data.designationId]
+  );
+  console.log(`   ✓  Created emp   : ${data.firstName} ${data.lastName} <${data.email}>`);
+  return result.rows[0].id;
+}
+
+async function linkEmployeeToUser(userId: number, employeeId: number) {
+  await pool.query("UPDATE users SET employee_id = $1 WHERE id = $2", [employeeId, userId]);
+  console.log(`   🔗 Linked user #${userId} → employee #${employeeId}`);
+}
+
+// ── main ──────────────────────────────────────────────────────────────────────
+
+async function main() {
+  console.log("\n🌱  HRMS Seed Script");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // STEP 1 — Login users
+  //
+  //  These rows go into the `users` table.
+  //  The `users` table = WHO CAN LOGIN.
+  //  Role controls what they can see/do in the app.
+  //
+  //  SUPER_ADMIN  → full access, can create/delete anything
+  //  ADMIN        → similar to SUPER_ADMIN but can't delete users
+  //  HR           → manage employees, leaves, payroll
+  //  MANAGER      → view team, approve leaves/expenses
+  //  EMPLOYEE     → own profile, own leaves, own attendance
+  // ────────────────────────────────────────────────────────────────────────────
+  console.log("👤  STEP 1 — Login users (users table)…\n");
+
+  const superAdminUserId = await upsertUser({
+    userId: "SA1",
+    name: "Super Admin",
+    email: "admin@innoven.com",
+    password: "Admin@1234",
+    role: "SUPER_ADMIN",
+  });
+
+  const adminUserId = await upsertUser({
+    userId: "ADM1",
+    name: "Admin User",
+    email: "admin2@innoven.com",
+    password: "Admin@1234",
+    role: "ADMIN",
+  });
+
+  const hrUserId = await upsertUser({
+    userId: "HR1",
+    name: "Priya Patel",
+    email: "hr@innoven.com",
+    password: "HR@1234",
+    role: "HR",
+  });
+
+  const managerUserId = await upsertUser({
+    userId: "MGR1",
+    name: "Rahul Sharma",
+    email: "manager@innoven.com",
+    password: "Manager@1234",
+    role: "MANAGER",
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // STEP 2 — Departments
+  //
+  //  Departments go in the `departments` table.
+  //  They are independent of users — purely for org structure.
+  // ────────────────────────────────────────────────────────────────────────────
+  console.log("\n🏢  STEP 2 — Departments…\n");
+
+  const engId   = await upsertDepartment("Engineering",      "Software development & infrastructure");
+  const hrId    = await upsertDepartment("Human Resources",  "Talent acquisition & employee relations");
+  const salesId = await upsertDepartment("Sales",            "Revenue generation & client management");
+  const finId   = await upsertDepartment("Finance",          "Accounting, payroll & financial planning");
+  const opsId   = await upsertDepartment("Operations",       "Day-to-day business operations");
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // STEP 3 — Designations (job titles)
+  // ────────────────────────────────────────────────────────────────────────────
+  console.log("\n🏷️   STEP 3 — Designations…\n");
+
+  const ctoId        = await upsertDesignation("CTO",                   engId,   7);
+  const senDevId     = await upsertDesignation("Senior Developer",      engId,   5);
+  const junDevId     = await upsertDesignation("Junior Developer",      engId,   3);
+  const hrMgrId      = await upsertDesignation("HR Manager",            hrId,    6);
+  const hrExecId     = await upsertDesignation("HR Executive",          hrId,    3);
+  const salesMgrId   = await upsertDesignation("Sales Manager",         salesId, 5);
+  const salesExecId  = await upsertDesignation("Sales Executive",       salesId, 3);
+  const acctId       = await upsertDesignation("Accountant",            finId,   4);
+  const opsExecId    = await upsertDesignation("Operations Executive",  opsId,   3);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // STEP 4 — Employees (HR profiles)
+  //
+  //  The `employees` table stores HR/payroll data for each person.
+  //  A login user CAN BE linked to an employee row, but doesn't have to be.
+  //
+  //  SUPER_ADMIN — typically a system account, no employee row needed.
+  //  HR/MANAGER  — they ARE employees, so we create employee rows for them
+  //                and then link their user account to the employee row.
+  //
+  //  This way the app can show "Priya Patel, HR Manager" in the sidebar
+  //  and their profile page works correctly.
+  // ────────────────────────────────────────────────────────────────────────────
+  console.log("\n👥  STEP 4 — Employees (HR profiles)…\n");
+
+  // HR Manager employee record (linked to hrUserId)
+  const empPriyaId = await upsertEmployee({
+    employeeId: "HR-001",
+    firstName: "Priya", lastName: "Patel",
+    email: "hr@innoven.com",
+    phone: "9876543211",
+    role: "HR",
+    departmentId: hrId,
+    designationId: hrMgrId,
+  });
+
+  // Engineering Manager (linked to managerUserId)
+  const empRahulId = await upsertEmployee({
+    employeeId: "ENG-001",
+    firstName: "Rahul", lastName: "Sharma",
+    email: "manager@innoven.com",
+    phone: "9876543210",
+    role: "MANAGER",
+    departmentId: engId,
+    designationId: ctoId,
+  });
+
+  // Regular employees (no login accounts by default — HR can add them via app)
+  await upsertEmployee({
+    employeeId: "ENG-002",
+    firstName: "Sneha", lastName: "Gupta",
+    email: "sneha.gupta@innoven.com",
+    phone: "9876543213",
+    role: "EMPLOYEE",
+    departmentId: engId,
+    designationId: senDevId,
+  });
+
+  await upsertEmployee({
+    employeeId: "ENG-003",
+    firstName: "Karan", lastName: "Verma",
+    email: "karan.verma@innoven.com",
+    phone: "9876543215",
+    role: "EMPLOYEE",
+    departmentId: engId,
+    designationId: junDevId,
+  });
+
+  await upsertEmployee({
+    employeeId: "SAL-001",
+    firstName: "Arjun", lastName: "Mehta",
+    email: "arjun.mehta@innoven.com",
+    phone: "9876543212",
+    role: "EMPLOYEE",
+    departmentId: salesId,
+    designationId: salesExecId,
+  });
+
+  await upsertEmployee({
+    employeeId: "SAL-002",
+    firstName: "Neha", lastName: "Joshi",
+    email: "neha.joshi@innoven.com",
+    phone: "9876543216",
+    role: "EMPLOYEE",
+    departmentId: salesId,
+    designationId: salesExecId,
+  });
+
+  await upsertEmployee({
+    employeeId: "FIN-001",
+    firstName: "Vikram", lastName: "Singh",
+    email: "vikram.singh@innoven.com",
+    phone: "9876543214",
+    role: "EMPLOYEE",
+    departmentId: finId,
+    designationId: acctId,
+  });
+
+  await upsertEmployee({
+    employeeId: "OPS-001",
+    firstName: "Divya", lastName: "Kapoor",
+    email: "divya.kapoor@innoven.com",
+    phone: "9876543217",
+    role: "EMPLOYEE",
+    departmentId: opsId,
+    designationId: opsExecId,
+  });
+
+  await upsertEmployee({
+    employeeId: "HR-002",
+    firstName: "Amit", lastName: "Desai",
+    email: "amit.desai@innoven.com",
+    phone: "9876543218",
+    role: "EMPLOYEE",
+    departmentId: hrId,
+    designationId: hrExecId,
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // STEP 5 — Link login users to their employee profiles
+  //
+  //  This connects the login account to the HR record.
+  //  After linking, the app will show the user's real name, department,
+  //  and profile photo in the sidebar and on their profile page.
+  //
+  //  SUPER_ADMIN is intentionally NOT linked — it's a system-level account.
+  // ────────────────────────────────────────────────────────────────────────────
+  console.log("\n🔗  STEP 5 — Linking users to employee profiles…\n");
+
+  await linkEmployeeToUser(hrUserId, empPriyaId);
+  await linkEmployeeToUser(managerUserId, empRahulId);
+
+  // ── Done ──────────────────────────────────────────────────────────────────
+  console.log(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅  Seed complete! Here are your login credentials:
+
+  ┌─────────────────────────────────────────────────┐
+  │  SUPER ADMIN  (full system access)              │
+  │  Email   : admin@innoven.com                    │
+  │  Password: Admin@1234                           │
+  ├─────────────────────────────────────────────────┤
+  │  ADMIN  (management access)                     │
+  │  Email   : admin2@innoven.com                   │
+  │  Password: Admin@1234                           │
+  ├─────────────────────────────────────────────────┤
+  │  HR MANAGER  (HR + employee management)         │
+  │  Email   : hr@innoven.com                       │
+  │  Password: HR@1234                              │
+  ├─────────────────────────────────────────────────┤
+  │  MANAGER  (team management + approvals)         │
+  │  Email   : manager@innoven.com                  │
+  │  Password: Manager@1234                         │
+  └─────────────────────────────────────────────────┘
+
+  ⚠️  Change all passwords after first login via Settings.
+
+  📝  HOW TO ADD MORE USERS:
+      Use POST /api/auth/register with:
+      { "name", "email", "password", "role" }
+      Roles: SUPER_ADMIN | ADMIN | HR | MANAGER |
+             TEAM_LEADER | EMPLOYEE | INTERN
+
+      Then link to an employee via PATCH /api/employees/:id
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`);
+}
+
+main()
+  .catch((err) => {
+    console.error("\n❌  Seed failed:", err.message ?? err);
+    if (err.detail) console.error("    Detail:", err.detail);
+    if (err.hint)   console.error("    Hint  :", err.hint);
+    if (err.code)   console.error("    Code  :", err.code);
+    process.exit(1);
+  })
+  .finally(() => {
+    pool.end();
+    process.exit(0);
+  });

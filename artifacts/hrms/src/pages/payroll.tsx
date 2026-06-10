@@ -56,14 +56,14 @@ export default function PayrollPage() {
   });
 
   const handleCreateStructure = () => {
+    const specialAllowanceValue = Number(structureData.specialAllowance) + (Number(structureData.medicalAllowance) || 0);
     createStructure.mutate({
       data: {
         employeeId: Number(structureData.employeeId),
         basic: Number(structureData.basic),
         hra: Number(structureData.hra),
-        specialAllowance: Number(structureData.specialAllowance),
+        specialAllowance: specialAllowanceValue || undefined,
         conveyance: Number(structureData.conveyance),
-        medicalAllowance: Number(structureData.medicalAllowance) || undefined,
         effectiveFrom: structureData.effectiveFrom,
       }
     });

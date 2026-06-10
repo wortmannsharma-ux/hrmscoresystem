@@ -121,7 +121,7 @@ export default function Employees() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border border-border">
-                          <AvatarImage src={emp.avatarUrl} alt={emp.firstName} />
+                          <AvatarImage src={emp.profilePhoto || undefined} alt={emp.firstName} />
                           <AvatarFallback className="bg-primary/10 text-primary font-medium">
                             {emp.firstName?.[0]}{emp.lastName?.[0]}
                           </AvatarFallback>
@@ -133,8 +133,8 @@ export default function Employees() {
                       </div>
                     </TableCell>
                     <TableCell className="font-medium text-xs">{emp.employeeId}</TableCell>
-                    <TableCell className="text-sm">{(emp as any).departmentName || emp.department?.name || 'N/A'}</TableCell>
-                    <TableCell className="text-sm">{(emp as any).designationName || emp.designation?.name || 'N/A'}</TableCell>
+                    <TableCell className="text-sm">{emp.departmentName || 'N/A'}</TableCell>
+                    <TableCell className="text-sm">{emp.designationName || 'N/A'}</TableCell>
                     <TableCell className="text-sm">{emp.role}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={emp.status?.toUpperCase() === 'ACTIVE' ? 'bg-success/10 text-success border-success/20' : 'bg-destructive/10 text-destructive border-destructive/20'}>

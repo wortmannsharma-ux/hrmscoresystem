@@ -9,6 +9,7 @@ import {
   UpdateSalaryStructureParams,
   UpdateSalaryStructureBody,
 } from "@workspace/api-zod";
+import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -16,7 +17,7 @@ function fmtPayroll(p: typeof payrollTable.$inferSelect & { employeeName?: strin
   return { ...p, employeeName: p.employeeName ?? null, createdAt: p.createdAt.toISOString() };
 }
 
-router.get("/payroll", async (req, res): Promise<void> => {
+router.get("/payroll", protect, async (req, res): Promise<void> => {
   const query = ListPayrollQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -62,7 +63,7 @@ router.get("/payroll", async (req, res): Promise<void> => {
   res.json(rows.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() })));
 });
 
-router.post("/payroll/generate", async (req, res): Promise<void> => {
+router.post("/payroll/generate", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = GeneratePayrollBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -135,7 +136,7 @@ router.post("/payroll/generate", async (req, res): Promise<void> => {
   res.status(201).json(records);
 });
 
-router.get("/payroll/:id", async (req, res): Promise<void> => {
+router.get("/payroll/:id", protect, async (req, res): Promise<void> => {
   const params = GetPayrollRecordParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -150,7 +151,7 @@ router.get("/payroll/:id", async (req, res): Promise<void> => {
 });
 
 // ── Salary Structures ──────────────────────────────────
-router.get("/salary-structures", async (_req, res): Promise<void> => {
+router.get("/salary-structures", protect, async (_req, res): Promise<void> => {
   const rows = await db.select({
     id: salaryStructuresTable.id,
     employeeId: salaryStructuresTable.employeeId,
@@ -174,7 +175,7 @@ router.get("/salary-structures", async (_req, res): Promise<void> => {
   })));
 });
 
-router.post("/salary-structures", async (req, res): Promise<void> => {
+router.post("/salary-structures", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = CreateSalaryStructureBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -192,7 +193,7 @@ router.post("/salary-structures", async (req, res): Promise<void> => {
   res.status(201).json({ ...structure, ctc, employeeName: null, createdAt: structure.createdAt.toISOString() });
 });
 
-router.patch("/salary-structures/:id", async (req, res): Promise<void> => {
+router.patch("/salary-structures/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const params = UpdateSalaryStructureParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

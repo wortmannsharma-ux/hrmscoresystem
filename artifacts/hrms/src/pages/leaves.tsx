@@ -84,7 +84,7 @@ export default function LeavesPage() {
     createLeave.mutate({
       data: {
         employeeId: Number(applyData.employeeId),
-        type: applyData.type as any,
+        leaveType: applyData.type as any,
         fromDate: applyData.fromDate,
         toDate: applyData.toDate,
         reason: applyData.reason

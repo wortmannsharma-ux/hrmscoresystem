@@ -18,6 +18,7 @@ import {
   ListOfficeLocationsResponse,
   CreateOfficeLocationBody,
 } from "@workspace/api-zod";
+import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -54,12 +55,12 @@ async function getOrCreateSettings() {
 }
 
 // ── Attendance Settings ────────────────────────────────
-router.get("/attendance/settings", async (_req, res): Promise<void> => {
+router.get("/attendance/settings", protect, async (_req, res): Promise<void> => {
   const settings = await getOrCreateSettings();
   res.json(settings);
 });
 
-router.put("/attendance/settings", async (req, res): Promise<void> => {
+router.put("/attendance/settings", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const {
     presentBeforeMins,
     lateBeforeMins,
@@ -87,7 +88,7 @@ router.put("/attendance/settings", async (req, res): Promise<void> => {
 });
 
 // ── Attendance List ────────────────────────────────────
-router.get("/attendance", async (req, res): Promise<void> => {
+router.get("/attendance", protect, async (req, res): Promise<void> => {
   const query = ListAttendanceQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -138,7 +139,7 @@ router.get("/attendance", async (req, res): Promise<void> => {
 });
 
 // ── Day Start (Smart Attendance) ───────────────────────
-router.post("/attendance/day-start", async (req, res): Promise<void> => {
+router.post("/attendance/day-start", protect, async (req, res): Promise<void> => {
   const parsed = DayStartBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -261,7 +262,7 @@ router.post("/attendance/day-start", async (req, res): Promise<void> => {
 });
 
 // ── Day End ────────────────────────────────────────────
-router.post("/attendance/day-end", async (req, res): Promise<void> => {
+router.post("/attendance/day-end", protect, async (req, res): Promise<void> => {
   const parsed = DayEndBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -313,7 +314,7 @@ router.post("/attendance/day-end", async (req, res): Promise<void> => {
 });
 
 // ── Approve Attendance ─────────────────────────────────
-router.patch("/attendance/:id/approve", async (req, res): Promise<void> => {
+router.patch("/attendance/:id/approve", protect, authorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER"), async (req, res): Promise<void> => {
   const params = ApproveAttendanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -344,7 +345,7 @@ router.patch("/attendance/:id/approve", async (req, res): Promise<void> => {
 });
 
 // ── Attendance Summary ─────────────────────────────────
-router.get("/attendance/summary", async (req, res): Promise<void> => {
+router.get("/attendance/summary", protect, async (req, res): Promise<void> => {
   const query = GetAttendanceSummaryQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -386,7 +387,7 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
 });
 
 // ── Today's Attendance ─────────────────────────────────
-router.get("/attendance/today", async (_req, res): Promise<void> => {
+router.get("/attendance/today", protect, async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const totalEmployees = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -415,7 +416,7 @@ router.get("/attendance/today", async (_req, res): Promise<void> => {
 });
 
 // ── Office Locations ───────────────────────────────────
-router.get("/office-locations", async (_req, res): Promise<void> => {
+router.get("/office-locations", protect, async (_req, res): Promise<void> => {
   const locs = await db
     .select()
     .from(officeLocationsTable)
@@ -423,7 +424,7 @@ router.get("/office-locations", async (_req, res): Promise<void> => {
   res.json(locs.map((l) => ({ ...l, createdAt: l.createdAt.toISOString() })));
 });
 
-router.post("/office-locations", async (req, res): Promise<void> => {
+router.post("/office-locations", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = CreateOfficeLocationBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -443,7 +444,7 @@ router.post("/office-locations", async (req, res): Promise<void> => {
   res.status(201).json({ ...loc, createdAt: loc.createdAt.toISOString() });
 });
 
-router.patch("/office-locations/:id", async (req, res): Promise<void> => {
+router.patch("/office-locations/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const id = parseInt(
     Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
     10
@@ -476,7 +477,7 @@ router.patch("/office-locations/:id", async (req, res): Promise<void> => {
   res.json({ ...loc, createdAt: loc.createdAt.toISOString() });
 });
 
-router.delete("/office-locations/:id", async (req, res): Promise<void> => {
+router.delete("/office-locations/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const id = parseInt(
     Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
     10
@@ -497,7 +498,7 @@ router.delete("/office-locations/:id", async (req, res): Promise<void> => {
 });
 
 // ── Live Tracking ──────────────────────────────────────
-router.post("/tracking/location", async (req, res): Promise<void> => {
+router.post("/tracking/location", protect, async (req, res): Promise<void> => {
   const { employeeId, lat, lng, speed, accuracy } = req.body;
   if (!employeeId || lat == null || lng == null) {
     res.status(400).json({ error: "employeeId, lat, lng required" });
@@ -510,7 +511,7 @@ router.post("/tracking/location", async (req, res): Promise<void> => {
   res.json({ ...record, timestamp: record.timestamp.toISOString() });
 });
 
-router.get("/tracking/live", async (_req, res): Promise<void> => {
+router.get("/tracking/live", protect, async (_req, res): Promise<void> => {
   const recentLocations = await db.execute(sql`
     SELECT DISTINCT ON (lt.employee_id)
       lt.employee_id as "employeeId",
@@ -546,7 +547,7 @@ router.get("/tracking/live", async (_req, res): Promise<void> => {
   );
 });
 
-router.get("/tracking/travel-summary", async (req, res): Promise<void> => {
+router.get("/tracking/travel-summary", protect, async (req, res): Promise<void> => {
   const date =
     (req.query.date as string) ?? new Date().toISOString().split("T")[0];
   const employeeId = req.query.employeeId

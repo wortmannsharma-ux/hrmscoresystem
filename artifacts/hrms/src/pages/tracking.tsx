@@ -20,7 +20,8 @@ export default function Tracking() {
   const [date, setDate] = useState(today);
 
   const { data: liveLocations = [], isLoading: loadingLive } = useGetLiveLocations();
-  const { data: employees = [] } = useListEmployees({ role: "Field Executive" });
+  const { data: employees = [] } = useListEmployees();
+  const fieldEmployees = employees.filter((emp) => emp.role === "Field Executive");
   const empId = selectedEmployee !== "all" ? parseInt(selectedEmployee, 10) : undefined;
   const { data: travelSummary } = useGetTravelSummary(
     empId ? { employeeId: empId, date } : { date },
@@ -244,9 +245,9 @@ export default function Tracking() {
                 { label: "Total Visits", value: visitSummary.totalVisits, color: "" },
                 { label: "Valid", value: visitSummary.validVisits, color: "text-success" },
                 { label: "Invalid", value: visitSummary.invalidVisits, color: "text-destructive" },
-                { label: "Total KM", value: `${visitSummary.totalKm.toFixed(1)} km`, color: "" },
-                { label: "Orders", value: visitSummary.ordersCollected, color: "" },
-                { label: "Collection", value: `₹${visitSummary.collectionAmount.toLocaleString("en-IN")}`, color: "text-success" },
+                { label: "Total KM", value: `${(visitSummary.totalKm ?? 0).toFixed(1)} km`, color: "" },
+                { label: "Orders", value: visitSummary.ordersCollected ?? 0, color: "" },
+                { label: "Collection", value: `₹${(visitSummary.collectionAmount ?? 0).toLocaleString("en-IN")}`, color: "text-success" },
               ].map((item) => (
                 <div key={item.label} className="rounded-lg border p-3 text-center">
                   <p className="text-xs text-muted-foreground mb-1">{item.label}</p>

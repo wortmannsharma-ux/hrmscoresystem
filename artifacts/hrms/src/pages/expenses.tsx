@@ -81,8 +81,8 @@ export default function ExpensesPage() {
         date: submitData.date,
         description: submitData.description,
         isAutoTravel: submitData.isAutoTravel,
-        kmDistance: submitData.isAutoTravel ? Number(submitData.km) : undefined,
-        perKmRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined
+        travelKm: submitData.isAutoTravel ? Number(submitData.km) : undefined,
+        travelRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined
       }
     });
   };

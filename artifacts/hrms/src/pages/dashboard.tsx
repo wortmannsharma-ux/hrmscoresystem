@@ -180,7 +180,7 @@ export default function Dashboard() {
               <div className="space-y-4 px-6"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>
             ) : (
               <div className="max-h-[250px] overflow-y-auto px-6 space-y-4">
-                {(activity || []).map((item: any, i: number) => {
+                {(Array.isArray(activity) ? activity : []).map((item: any, i: number) => {
                   const Icon = item.type === 'leave' ? Calendar : item.type === 'expense' ? Receipt : Clock;
                   const colorClass = item.type === 'leave' ? 'text-warning bg-warning/10' : item.type === 'expense' ? 'text-destructive bg-destructive/10' : 'text-primary bg-primary/10';
                   return (
@@ -197,7 +197,7 @@ export default function Dashboard() {
                     </div>
                   )
                 })}
-                {(!activity || activity.length === 0) && (
+                {(!Array.isArray(activity) || activity.length === 0) && (
                   <div className="text-center text-muted-foreground text-sm py-4">No recent activity</div>
                 )}
               </div>

@@ -13,11 +13,12 @@ import {
   UpdateApplicantParams,
   UpdateApplicantBody,
 } from "@workspace/api-zod";
+import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
 // ── Jobs ──────────────────────────────────────────────
-router.get("/jobs", async (req, res): Promise<void> => {
+router.get("/jobs", protect, async (req, res): Promise<void> => {
   const query = ListJobsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -60,7 +61,7 @@ router.get("/jobs", async (req, res): Promise<void> => {
   })));
 });
 
-router.post("/jobs", async (req, res): Promise<void> => {
+router.post("/jobs", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = CreateJobBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -84,7 +85,7 @@ router.post("/jobs", async (req, res): Promise<void> => {
   res.status(201).json({ ...job, departmentName: null, applicantCount: 0, createdAt: job.createdAt.toISOString() });
 });
 
-router.get("/jobs/:id", async (req, res): Promise<void> => {
+router.get("/jobs/:id", protect, async (req, res): Promise<void> => {
   const params = GetJobParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -98,7 +99,7 @@ router.get("/jobs/:id", async (req, res): Promise<void> => {
   res.json({ ...job, departmentName: null, applicantCount: 0, createdAt: job.createdAt.toISOString() });
 });
 
-router.patch("/jobs/:id", async (req, res): Promise<void> => {
+router.patch("/jobs/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const params = UpdateJobParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -122,7 +123,7 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
 });
 
 // ── Applicants ────────────────────────────────────────
-router.get("/applicants", async (req, res): Promise<void> => {
+router.get("/applicants", protect, async (req, res): Promise<void> => {
   const query = ListApplicantsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -163,7 +164,7 @@ router.get("/applicants", async (req, res): Promise<void> => {
   res.json(rows.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })));
 });
 
-router.post("/applicants", async (req, res): Promise<void> => {
+router.post("/applicants", protect, async (req, res): Promise<void> => {
   const parsed = CreateApplicantBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -184,7 +185,7 @@ router.post("/applicants", async (req, res): Promise<void> => {
   res.status(201).json({ ...applicant, jobTitle: null, createdAt: applicant.createdAt.toISOString() });
 });
 
-router.get("/applicants/:id", async (req, res): Promise<void> => {
+router.get("/applicants/:id", protect, async (req, res): Promise<void> => {
   const params = GetApplicantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -198,7 +199,7 @@ router.get("/applicants/:id", async (req, res): Promise<void> => {
   res.json({ ...applicant, jobTitle: null, createdAt: applicant.createdAt.toISOString() });
 });
 
-router.patch("/applicants/:id", async (req, res): Promise<void> => {
+router.patch("/applicants/:id", protect, async (req, res): Promise<void> => {
   const params = UpdateApplicantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

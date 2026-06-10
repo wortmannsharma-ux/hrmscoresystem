@@ -71,10 +71,9 @@ export default function VisitsPage() {
       data: {
         employeeId: Number(visitData.employeeId),
         vendorId: Number(visitData.vendorId),
-        visitDate: date,
-        checkInTime: visitData.checkInTime || new Date().toISOString(),
-        checkInLat: visitData.latitude ? Number(visitData.latitude) : undefined,
-        checkInLng: visitData.longitude ? Number(visitData.longitude) : undefined,
+        selfieUrl: "https://placehold.co/100x100",
+        lat: visitData.latitude ? Number(visitData.latitude) : undefined,
+        lng: visitData.longitude ? Number(visitData.longitude) : undefined,
         orderValue: visitData.orderValue ? Number(visitData.orderValue) : undefined,
         remarks: visitData.remarks || undefined,
       }
@@ -89,7 +88,6 @@ export default function VisitsPage() {
         mobile: vendorData.mobile || undefined,
         email: vendorData.email || undefined,
         address: vendorData.address || undefined,
-        city: vendorData.city || undefined,
       }
     });
   };
@@ -144,7 +142,7 @@ export default function VisitsPage() {
                 <MapPin className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₹{summary?.totalCollection || 0}</div>
+                <div className="text-2xl font-bold">₹{summary?.collectionAmount ?? 0}</div>
               </CardContent>
             </Card>
           </div>
