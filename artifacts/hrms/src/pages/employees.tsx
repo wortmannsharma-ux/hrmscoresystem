@@ -8,11 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Eye, UserPlus, Filter } from "lucide-react";
+import { Search, Eye, UserPlus, Filter, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { format } from "date-fns";
+import { useAuth } from "@/lib/auth-context";
 
 export default function Employees() {
+  const { user } = useAuth();
+  const role = user?.role ?? "";
+  const isManager = role === "MANAGER" || role === "TEAM_LEADER";
+
   const [search, setSearch] = useState("");
   const [departmentId, setDepartmentId] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
@@ -23,22 +28,36 @@ export default function Employees() {
     ...(status !== "all" ? { status } : {})
   };
 
-  const { data: employees, isLoading } = useListEmployees(params, {
+  const { data: allEmployees, isLoading } = useListEmployees(params, {
     query: { queryKey: getListEmployeesQueryKey(params) }
   });
   const { data: departments } = useListDepartments();
+
+  // Managers only see employees whose managerId matches their own employee record
+  const employees = isManager && user?.employeeId
+    ? allEmployees?.filter((emp) => emp.managerId === user.employeeId)
+    : allEmployees;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-primary">Employee Directory</h2>
-          <p className="text-muted-foreground">Manage your workforce and view employee details.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-primary">
+            {isManager ? "My Team" : "Employee Directory"}
+          </h2>
+          <p className="text-muted-foreground">
+            {isManager
+              ? "Employees reporting directly to you."
+              : "Manage your workforce and view employee details."}
+          </p>
         </div>
-        <Button data-testid="button-add-employee" className="shrink-0 gap-2">
-          <UserPlus className="h-4 w-4" />
-          Add Employee
-        </Button>
+        {/* Only admins and HR can add employees */}
+        {!isManager && (
+          <Button data-testid="button-add-employee" className="shrink-0 gap-2">
+            <UserPlus className="h-4 w-4" />
+            Add Employee
+          </Button>
+        )}
       </div>
 
       <Card className="p-4">
@@ -110,8 +129,18 @@ export default function Employees() {
                 <TableRow>
                   <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center">
-                      <Filter className="h-8 w-8 mb-2 text-muted-foreground/50" />
-                      <p>No employees found matching the filters.</p>
+                      {isManager ? (
+                        <>
+                          <Users className="h-8 w-8 mb-2 text-muted-foreground/50" />
+                          <p>No team members are assigned to you yet.</p>
+                          <p className="text-xs mt-1">Ask HR to set your employee record as their manager.</p>
+                        </>
+                      ) : (
+                        <>
+                          <Filter className="h-8 w-8 mb-2 text-muted-foreground/50" />
+                          <p>No employees found matching the filters.</p>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
