@@ -13,6 +13,7 @@ import {
   Car,
   LogOut,
   Receipt,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -46,6 +47,13 @@ const ALL_NAV = [
     // MANAGER, TEAM_LEADER see only their team (filtered on the page itself).
     // EMPLOYEE / INTERN do NOT get a directory link — they use their own profile.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER", "TEAM_LEADER"] as Role[],
+  },
+  {
+    name: "Users",
+    href: "/users",
+    icon: ShieldCheck,
+    // Only SUPER_ADMIN and ADMIN can manage login accounts.
+    visibleTo: ["SUPER_ADMIN", "ADMIN"] as Role[],
   },
   {
     name: "Org Chart",

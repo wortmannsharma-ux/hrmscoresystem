@@ -12,6 +12,7 @@ import {
   useCreateOfficeLocation,
   useUpdateOfficeLocation,
   useDeleteOfficeLocation,
+  useApproveAttendance,
   getListAttendanceQueryKey,
   getGetAttendanceSummaryQueryKey,
   getGetTodayAttendanceQueryKey,
@@ -28,8 +29,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Users, UserCheck, UserX, Clock, MapPin, Plus, Pencil, Trash2, Settings, Shield } from "lucide-react";
+import { Users, UserCheck, UserX, Clock, MapPin, Plus, Pencil, Trash2, Settings, Shield, CheckCircle, XCircle } from "lucide-react";
 import { SmartAttendanceModal } from "@/components/smart-attendance-modal";
+import { useAuth, authFetch } from "@/lib/auth-context";
 
 const DEFAULT_SETTINGS = {
   presentBeforeMins: 570,
@@ -53,6 +55,11 @@ function timeInputToMins(t: string): number {
 export default function AttendancePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const role = user?.role ?? "";
+  const isManager = role === "MANAGER" || role === "TEAM_LEADER";
+  const canApprove = role === "SUPER_ADMIN" || role === "ADMIN" || role === "MANAGER" || role === "TEAM_LEADER";
+
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
 
@@ -79,7 +86,7 @@ export default function AttendancePage() {
   const [locationForm, setLocationForm] = useState({ name: "", lat: "", lng: "", radius: "50", requireApproval: false, isActive: true });
 
   useEffect(() => {
-    fetch("/api/attendance/settings")
+    authFetch("/api/attendance/settings")
       .then((r) => r.json())
       .then((data) => {
         setSettings(data);
@@ -92,7 +99,7 @@ export default function AttendancePage() {
   const saveSettings = async () => {
     setSavingSettings(true);
     try {
-      const res = await fetch("/api/attendance/settings", {
+      const res = await authFetch("/api/attendance/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(localSettings),
@@ -119,6 +126,23 @@ export default function AttendancePage() {
   );
   const { data: employees } = useListEmployees();
   const { data: officeLocations } = useListOfficeLocations();
+
+  // Manager sees only their team employees
+  const allEmployees = (employees || []) as any[];
+  const employeesList = isManager && user?.employeeId
+    ? allEmployees.filter((e: any) => e.managerId === user.employeeId)
+    : allEmployees;
+
+  // Approve attendance mutation (ADMIN / MANAGER only)
+  const approveMutation = useApproveAttendance({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Attendance updated" });
+        queryClient.invalidateQueries({ queryKey: getListAttendanceQueryKey() });
+      },
+      onError: () => toast({ title: "Failed to update attendance", variant: "destructive" }),
+    },
+  });
 
   const dayStartMutation = useDayStart({
     mutation: {
@@ -247,8 +271,6 @@ export default function AttendancePage() {
       default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
-
-  const employeesList = (employees || []) as any[];
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -388,21 +410,28 @@ export default function AttendancePage() {
                   <TableHead>Selfie</TableHead>
                   <TableHead>EOD</TableHead>
                   <TableHead>Approval</TableHead>
+                  {canApprove && <TableHead className="text-right">Action</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center">Loading...</TableCell>
+                    <TableCell colSpan={canApprove ? 11 : 10} className="text-center">Loading...</TableCell>
                   </TableRow>
                 ) : !attendanceList?.length ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={canApprove ? 11 : 10} className="text-center text-muted-foreground py-8">
                       No records found for {month}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  (attendanceList as any[]).map((record: any) => (
+                  (attendanceList as any[])
+                    // Managers see only their team's records
+                    .filter((record: any) => {
+                      if (!isManager || !user?.employeeId) return true;
+                      return employeesList.some((e: any) => e.id === record.employeeId);
+                    })
+                    .map((record: any) => (
                     <TableRow key={record.id} data-testid={`row-attendance-${record.id}`}>
                       <TableCell className="font-medium">
                         {record.employeeName || `EMP #${record.employeeId}`}
@@ -446,6 +475,35 @@ export default function AttendancePage() {
                           </Badge>
                         ) : "—"}
                       </TableCell>
+                      {/* Approve / Reject — only ADMIN and MANAGER see this */}
+                      {canApprove && (
+                        <TableCell className="text-right">
+                          {record.approvalStatus === "Pending" && (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-7 w-7 text-green-600 border-green-200 hover:bg-green-50"
+                                disabled={approveMutation.isPending}
+                                onClick={() => approveMutation.mutate({ id: record.id, data: { action: "Approved", approvedBy: user?.employeeId ?? undefined } })}
+                                title="Approve"
+                              >
+                                <CheckCircle className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-7 w-7 text-red-600 border-red-200 hover:bg-red-50"
+                                disabled={approveMutation.isPending}
+                                onClick={() => approveMutation.mutate({ id: record.id, data: { action: "Rejected" } })}
+                                title="Reject"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}

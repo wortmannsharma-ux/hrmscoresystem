@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
+import UsersPage from "@/pages/users";
 import { AppLayout } from "@/components/layout/app-layout";
 import Dashboard from "@/pages/dashboard";
 import Employees from "@/pages/employees";
@@ -43,6 +44,7 @@ function ProtectedRouter() {
         <Route path="/employees/:id" component={EmployeeProfile} />
         <Route path="/employees" component={Employees} />
         <Route path="/departments" component={Departments} />
+        <Route path="/users" component={UsersPage} />
         <Route path="/attendance" component={Attendance} />
         <Route path="/field-tracking" component={Tracking} />
         <Route path="/visits" component={Visits} />

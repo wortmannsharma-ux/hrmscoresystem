@@ -18,11 +18,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Check, X, IndianRupee, FileText, CheckCircle } from "lucide-react";
+import { IndianRupee, FileText, CheckCircle } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 export default function ExpensesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const role = user?.role ?? "";
+
+  // HR cannot approve expenses — only ADMIN, SUPER_ADMIN, MANAGER, TEAM_LEADER can
+  const canApprove = ["SUPER_ADMIN", "ADMIN", "MANAGER", "TEAM_LEADER"].includes(role);
+  const isManager = role === "MANAGER" || role === "TEAM_LEADER";
   
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
   const [employeeId, setEmployeeId] = useState<string>("all");
@@ -40,11 +47,31 @@ export default function ExpensesPage() {
     status: status !== "all" ? status : undefined
   };
 
-  const { data: expenses, isLoading } = useListExpenses(queryParams, {
+  const { data: rawExpenses, isLoading } = useListExpenses(queryParams, {
     query: { queryKey: getListExpensesQueryKey(queryParams) }
   });
 
-  const { data: employees } = useListEmployees();
+  const { data: allEmployeesRaw } = useListEmployees();
+
+  // Managers see only their team's employees
+  const allEmployees = (allEmployeesRaw || []) as any[];
+  const employees = isManager && user?.employeeId
+    ? allEmployees.filter((e: any) => e.managerId === user.employeeId)
+    : allEmployees;
+
+  // Managers only see expenses from their team members
+  const expenses = useMemo(() => {
+    if (!rawExpenses) return [];
+    if (isManager && user?.employeeId) {
+      const teamIds = new Set(
+        allEmployees
+          .filter((e: any) => e.managerId === user.employeeId)
+          .map((e: any) => e.id)
+      );
+      return (rawExpenses as any[]).filter((exp: any) => teamIds.has(exp.employeeId));
+    }
+    return rawExpenses as any[];
+  }, [rawExpenses, isManager, user?.employeeId, allEmployees]);
 
   const createExpense = useCreateExpense({
     mutation: {
@@ -102,7 +129,7 @@ export default function ExpensesPage() {
   };
 
   const stats = useMemo(() => {
-    if (!expenses) return { pendingAmount: 0, claims: 0, approved: 0 };
+    if (!expenses || expenses.length === 0) return { pendingAmount: 0, claims: 0, approved: 0 };
     return expenses.reduce((acc: any, exp: any) => {
       acc.claims += 1;
       if (exp.status === "Pending") acc.pendingAmount += Number(exp.amount) || 0;
@@ -129,7 +156,7 @@ export default function ExpensesPage() {
                 <Select value={submitData.employeeId} onValueChange={v => setSubmitData({...submitData, employeeId: v})}>
                   <SelectTrigger id="emp"><SelectValue placeholder="Select employee" /></SelectTrigger>
                   <SelectContent>
-                    {employees?.map(emp => (
+                    {employees.map((emp: any) => (
                       <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
                     ))}
                   </SelectContent>
@@ -232,7 +259,7 @@ export default function ExpensesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Employees</SelectItem>
-            {employees?.map(emp => (
+            {employees.map((emp: any) => (
               <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
             ))}
           </SelectContent>
@@ -281,7 +308,7 @@ export default function ExpensesPage() {
                     <Badge variant="outline" className={getStatusColor(expense.status)}>{expense.status}</Badge>
                   </TableCell>
                   <TableCell>
-                    {expense.status === "Pending" && (
+                    {canApprove && expense.status === "Pending" && (
                       <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => handleApprove(expense.id)} disabled={approveExpense.isPending} data-testid={`btn-approve-${expense.id}`}>
                         Approve
                       </Button>
