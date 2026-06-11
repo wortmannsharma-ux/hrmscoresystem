@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Users, UserCheck, CalendarOff, Receipt, Clock, Calendar } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { useAuth } from "@/lib/auth-context";
 
 const COLORS = [
   "hsl(var(--chart-1))",
@@ -23,6 +24,10 @@ const COLORS = [
 export default function Dashboard() {
   const today = new Date();
   const greeting = today.getHours() < 12 ? "Good morning" : today.getHours() < 18 ? "Good afternoon" : "Good evening";
+  const { user } = useAuth();
+  const displayName = user?.firstName
+    ? user.firstName
+    : user?.name?.split(" ")[0] ?? "there";
 
   const { data: dashboard, isLoading: isLoadingDash } = useGetHrDashboard();
   const { data: attendance, isLoading: isLoadingAtt } = useGetTodayAttendance();
@@ -33,7 +38,7 @@ export default function Dashboard() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-primary">{greeting}, HR Team</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-primary">{greeting}, {displayName}</h2>
           <p className="text-muted-foreground">{format(today, "EEEE, MMMM d, yyyy")}</p>
         </div>
       </div>

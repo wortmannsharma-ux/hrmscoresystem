@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql } from "drizzle-orm";
-import { db, leavesTable, employeesTable, holidaysTable } from "@workspace/db";
+import { db, leavesTable, employeesTable, holidaysTable, leaveBalancesTable, pool } from "@workspace/db";
 import {
   ListLeavesQueryParams,
   CreateLeaveBody,
@@ -15,6 +15,53 @@ import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
+// ── Ensure leave_balances table exists (auto-migrate) ────────────────────────
+// Runs once on first import. Drizzle-kit push is the preferred path, but this
+// guarantees the table is present even if push hasn't been run yet.
+async function ensureLeaveBalancesTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leave_balances (
+        id           SERIAL PRIMARY KEY,
+        employee_id  INTEGER NOT NULL,
+        year         INTEGER NOT NULL,
+        casual       REAL    NOT NULL DEFAULT 12,
+        sick         REAL    NOT NULL DEFAULT 12,
+        earned       REAL    NOT NULL DEFAULT 15,
+        unpaid       REAL    NOT NULL DEFAULT 999,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (employee_id, year)
+      )
+    `);
+  } catch {
+    // Table already exists or DB not reachable — ignore at import time
+  }
+}
+ensureLeaveBalancesTable();
+
+// ── Helper: get or create a balance row ─────────────────────────────────────
+async function getOrCreateBalance(employeeId: number, year: number) {
+  const existing = await db
+    .select()
+    .from(leaveBalancesTable)
+    .where(
+      and(
+        eq(leaveBalancesTable.employeeId, employeeId),
+        eq(leaveBalancesTable.year, year)
+      )
+    );
+
+  if (existing.length > 0) return existing[0]!;
+
+  // Auto-create with defaults
+  const [row] = await db
+    .insert(leaveBalancesTable)
+    .values({ employeeId, year })
+    .returning();
+  return row!;
+}
+
 function fmtLeave(l: typeof leavesTable.$inferSelect & { employeeName?: string | null; approverName?: string | null }) {
   return {
     ...l,
@@ -24,6 +71,7 @@ function fmtLeave(l: typeof leavesTable.$inferSelect & { employeeName?: string |
   };
 }
 
+// ── GET /leaves ──────────────────────────────────────────────────────────────
 router.get("/leaves", protect, async (req, res): Promise<void> => {
   const query = ListLeavesQueryParams.safeParse(req.query);
   if (!query.success) {
@@ -62,6 +110,7 @@ router.get("/leaves", protect, async (req, res): Promise<void> => {
   res.json(rows.map((l) => ({ ...l, approverName: null, createdAt: l.createdAt.toISOString() })));
 });
 
+// ── POST /leaves ─────────────────────────────────────────────────────────────
 router.post("/leaves", protect, async (req, res): Promise<void> => {
   const parsed = CreateLeaveBody.safeParse(req.body);
   if (!parsed.success) {
@@ -74,9 +123,10 @@ router.post("/leaves", protect, async (req, res): Promise<void> => {
   const days = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   const [leave] = await db.insert(leavesTable).values({ ...parsed.data, days }).returning();
-  res.status(201).json(fmtLeave({ ...leave, employeeName: null, approverName: null }));
+  res.status(201).json(fmtLeave({ ...leave!, employeeName: null, approverName: null }));
 });
 
+// ── GET /leaves/:id ──────────────────────────────────────────────────────────
 router.get("/leaves/:id", protect, async (req, res): Promise<void> => {
   const params = GetLeaveParams.safeParse(req.params);
   if (!params.success) {
@@ -91,6 +141,7 @@ router.get("/leaves/:id", protect, async (req, res): Promise<void> => {
   res.json(fmtLeave({ ...leave, employeeName: null, approverName: null }));
 });
 
+// ── PATCH /leaves/:id/approve ────────────────────────────────────────────────
 router.patch("/leaves/:id/approve", protect, authorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER"), async (req, res): Promise<void> => {
   const params = ApproveLeaveParams.safeParse(req.params);
   if (!params.success) {
@@ -120,6 +171,8 @@ router.patch("/leaves/:id/approve", protect, authorize("SUPER_ADMIN", "ADMIN", "
   res.json(fmtLeave({ ...leave, employeeName: null, approverName: null }));
 });
 
+// ── GET /leaves/balance/:employeeId ─────────────────────────────────────────
+// Returns entitlement + used counts. Creates a default balance row if none exists.
 router.get("/leaves/balance/:employeeId", protect, async (req, res): Promise<void> => {
   const params = GetLeaveBalanceParams.safeParse(req.params);
   if (!params.success) {
@@ -127,7 +180,10 @@ router.get("/leaves/balance/:employeeId", protect, async (req, res): Promise<voi
     return;
   }
 
-  const year = new Date().getFullYear().toString();
+  const year = new Date().getFullYear();
+  const balance = await getOrCreateBalance(params.data.employeeId, year);
+
+  // Compute used days from approved leaves this year
   const leaves = await db.select().from(leavesTable).where(
     and(
       eq(leavesTable.employeeId, params.data.employeeId),
@@ -136,11 +192,16 @@ router.get("/leaves/balance/:employeeId", protect, async (req, res): Promise<voi
     )
   );
 
-  const used = (type: string) => leaves.filter((l) => l.leaveType === type).reduce((sum, l) => sum + (l.days ?? 0), 0);
+  const used = (type: string) =>
+    leaves.filter((l) => l.leaveType === type).reduce((sum, l) => sum + (l.days ?? 0), 0);
 
   res.json({
     employeeId: params.data.employeeId,
-    casual: 12, sick: 12, earned: 15, unpaid: 999,
+    year,
+    casual: balance.casual,
+    sick: balance.sick,
+    earned: balance.earned,
+    unpaid: balance.unpaid,
     casualUsed: used("Casual"),
     sickUsed: used("Sick"),
     earnedUsed: used("Earned"),
@@ -148,7 +209,88 @@ router.get("/leaves/balance/:employeeId", protect, async (req, res): Promise<voi
   });
 });
 
-// ── Holidays ──────────────────────────────────────────
+// ── PATCH /leaves/balance/:employeeId — admin/HR edit entitlements ────────────
+router.patch(
+  "/leaves/balance/:employeeId",
+  protect,
+  authorize("SUPER_ADMIN", "ADMIN", "HR"),
+  async (req, res): Promise<void> => {
+    const employeeId = parseInt(
+      Array.isArray(req.params.employeeId) ? req.params.employeeId[0] : req.params.employeeId,
+      10
+    );
+    if (isNaN(employeeId)) {
+      res.status(400).json({ error: "Invalid employeeId" });
+      return;
+    }
+
+    const { casual, sick, earned, unpaid, year } = req.body;
+    const targetYear = year ? Number(year) : new Date().getFullYear();
+
+    // Validate values
+    const updates: Record<string, number> = {};
+    if (casual !== undefined) updates.casual = Number(casual);
+    if (sick !== undefined) updates.sick = Number(sick);
+    if (earned !== undefined) updates.earned = Number(earned);
+    if (unpaid !== undefined) updates.unpaid = Number(unpaid);
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "Provide at least one of: casual, sick, earned, unpaid" });
+      return;
+    }
+
+    // Upsert: update if exists, insert if not
+    const existing = await db
+      .select({ id: leaveBalancesTable.id })
+      .from(leaveBalancesTable)
+      .where(
+        and(
+          eq(leaveBalancesTable.employeeId, employeeId),
+          eq(leaveBalancesTable.year, targetYear)
+        )
+      );
+
+    let balance;
+    if (existing.length > 0) {
+      [balance] = await db
+        .update(leaveBalancesTable)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(leaveBalancesTable.id, existing[0]!.id))
+        .returning();
+    } else {
+      [balance] = await db
+        .insert(leaveBalancesTable)
+        .values({ employeeId, year: targetYear, casual: 12, sick: 12, earned: 15, unpaid: 999, ...updates })
+        .returning();
+    }
+
+    // Return full balance with used counts
+    const leaves = await db.select().from(leavesTable).where(
+      and(
+        eq(leavesTable.employeeId, employeeId),
+        eq(leavesTable.status, "Approved"),
+        sql`extract(year from ${leavesTable.fromDate}::date) = ${targetYear}`
+      )
+    );
+    const used = (type: string) =>
+      leaves.filter((l) => l.leaveType === type).reduce((sum, l) => sum + (l.days ?? 0), 0);
+
+    res.json({
+      employeeId,
+      year: targetYear,
+      casual: balance!.casual,
+      sick: balance!.sick,
+      earned: balance!.earned,
+      unpaid: balance!.unpaid,
+      casualUsed: used("Casual"),
+      sickUsed: used("Sick"),
+      earnedUsed: used("Earned"),
+      unpaidUsed: used("Unpaid"),
+    });
+  }
+);
+
+// ── Holidays ─────────────────────────────────────────────────────────────────
 router.get("/holidays", protect, async (req, res): Promise<void> => {
   const query = ListHolidaysQueryParams.safeParse(req.query);
   if (!query.success) {
@@ -176,7 +318,7 @@ router.post("/holidays", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async
     type: parsed.data.type,
     isOptional: parsed.data.isOptional ?? false,
   }).returning();
-  res.status(201).json({ ...holiday, createdAt: holiday.createdAt.toISOString() });
+  res.status(201).json({ ...holiday!, createdAt: holiday!.createdAt.toISOString() });
 });
 
 router.delete("/holidays/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {

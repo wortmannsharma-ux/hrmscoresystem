@@ -87,6 +87,67 @@ async function main() {
   `);
   console.log("   ✓  users.name column ensured");
 
+  // Add employee_id column to users if missing
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                     WHERE table_name='users' AND column_name='employee_id') THEN
+        ALTER TABLE users ADD COLUMN employee_id INTEGER;
+        ALTER TABLE users ADD CONSTRAINT users_employee_id_unique UNIQUE (employee_id);
+      END IF;
+    END $$;
+  `);
+  console.log("   ✓  users.employee_id column ensured");
+
+  // Add last_login_at column to users if missing
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                     WHERE table_name='users' AND column_name='last_login_at') THEN
+        ALTER TABLE users ADD COLUMN last_login_at TIMESTAMPTZ;
+      END IF;
+    END $$;
+  `);
+  console.log("   ✓  users.last_login_at column ensured");
+
+  // Add updated_at column to users if missing
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                     WHERE table_name='users' AND column_name='updated_at') THEN
+        ALTER TABLE users ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+      END IF;
+    END $$;
+  `);
+  console.log("   ✓  users.updated_at column ensured");
+
+  // Add is_active column to users if missing (some old schemas used 'active')
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                     WHERE table_name='users' AND column_name='is_active') THEN
+        ALTER TABLE users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true;
+      END IF;
+    END $$;
+  `);
+  console.log("   ✓  users.is_active column ensured");
+
+  // Add leave_balances table
+  await run(`
+    CREATE TABLE IF NOT EXISTS leave_balances (
+      id           SERIAL PRIMARY KEY,
+      employee_id  INTEGER NOT NULL,
+      year         INTEGER NOT NULL,
+      casual       REAL    NOT NULL DEFAULT 12,
+      sick         REAL    NOT NULL DEFAULT 12,
+      earned       REAL    NOT NULL DEFAULT 15,
+      unpaid       REAL    NOT NULL DEFAULT 999,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (employee_id, year)
+    )
+  `, "leave_balances table");
+
   // ── departments ───────────────────────────────────────────────────────────
   await run(`
     CREATE TABLE IF NOT EXISTS departments (

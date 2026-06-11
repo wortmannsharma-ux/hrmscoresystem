@@ -52,16 +52,15 @@ const ALL_NAV = [
     name: "Users",
     href: "/users",
     icon: ShieldCheck,
-    // Only SUPER_ADMIN and ADMIN can manage login accounts.
-    visibleTo: ["SUPER_ADMIN", "ADMIN"] as Role[],
+    // SUPER_ADMIN, ADMIN and HR can manage login accounts.
+    visibleTo: ["SUPER_ADMIN", "ADMIN", "HR"] as Role[],
   },
   {
     name: "Org Chart",
     href: "/departments",
     icon: Building2,
-    // HR deals with org structure but you said HR cannot see it.
     // Only admins manage departments/designations.
-    visibleTo: ["SUPER_ADMIN", "ADMIN"] as Role[],
+    visibleTo: ["SUPER_ADMIN", "ADMIN", "HR"] as Role[],
   },
   {
     name: "Attendance",

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql } from "drizzle-orm";
-import { db, employeesTable, departmentsTable, designationsTable } from "@workspace/db";
+import { db, employeesTable, departmentsTable, designationsTable, usersTable } from "@workspace/db";
 import {
   ListEmployeesQueryParams,
   CreateEmployeeBody,
@@ -18,7 +18,7 @@ const router: IRouter = Router();
 router.get(
   "/employees",
   protect,
-  authorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER", "TEAM_LEADER"),
+  authorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER", "TEAM_LEADER", "EMPLOYEE", "INTERN"),
   async (req, res): Promise<void> => {
     const query = ListEmployeesQueryParams.safeParse(req.query);
     if (!query.success) {
@@ -67,12 +67,25 @@ router.get(
         )
       );
 
+    // Resolve manager names in a separate query
+    const managerIds = [...new Set(employees.map((e) => e.managerId).filter((id): id is number => id != null))];
+    const managerMap = new Map<number, string>();
+    if (managerIds.length > 0) {
+      const managers = await db
+        .select({ id: employeesTable.id, firstName: employeesTable.firstName, lastName: employeesTable.lastName })
+        .from(employeesTable)
+        .where(sql`${employeesTable.id} = ANY(${sql`ARRAY[${sql.join(managerIds.map((id) => sql`${id}`), sql`, `)}]::int[]`})`);
+      for (const m of managers) {
+        managerMap.set(m.id, `${m.firstName} ${m.lastName}`);
+      }
+    }
+
     const userRole = req.user!.role;
     const canSeeSensitive = ["SUPER_ADMIN", "ADMIN", "HR"].includes(userRole);
 
     const result = employees.map((e) => ({
       ...e,
-      managerName: null,
+      managerName: e.managerId ? (managerMap.get(e.managerId) ?? null) : null,
       createdAt: e.createdAt.toISOString(),
       bankAccount: canSeeSensitive ? e.bankAccount : undefined,
       ifscCode: canSeeSensitive ? e.ifscCode : undefined,
@@ -114,6 +127,20 @@ router.post(
       .values({ ...parsed.data, employeeId })
       .returning();
 
+    // If a user with the same email exists and is not yet linked, auto-link them
+    const emailLower = parsed.data.email.toLowerCase();
+    const userRows = await db
+      .select({ id: usersTable.id, employeeId: usersTable.employeeId })
+      .from(usersTable)
+      .where(eq(usersTable.email, emailLower));
+
+    if (userRows.length > 0 && !userRows[0]!.employeeId) {
+      await db
+        .update(usersTable)
+        .set({ employeeId: emp.id })
+        .where(eq(usersTable.id, userRows[0]!.id));
+    }
+
     res.status(201).json({
       ...emp,
       departmentName: null,
@@ -128,7 +155,7 @@ router.post(
 router.get(
   "/employees/:id",
   protect,
-  ownerOrAuthorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER", "TEAM_LEADER"),
+  ownerOrAuthorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER", "TEAM_LEADER", "EMPLOYEE", "INTERN"),
   async (req, res): Promise<void> => {
     const params = GetEmployeeParams.safeParse(req.params);
     if (!params.success) {
@@ -172,6 +199,16 @@ router.get(
       return;
     }
 
+    // Resolve manager name
+    let managerName: string | null = null;
+    if (emp.managerId) {
+      const [mgr] = await db
+        .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName })
+        .from(employeesTable)
+        .where(eq(employeesTable.id, emp.managerId));
+      if (mgr) managerName = `${mgr.firstName} ${mgr.lastName}`;
+    }
+
     const userRole = req.user!.role;
     const canSeeSensitive =
       ["SUPER_ADMIN", "ADMIN", "HR"].includes(userRole) ||
@@ -179,7 +216,7 @@ router.get(
 
     res.json({
       ...emp,
-      managerName: null,
+      managerName,
       createdAt: emp.createdAt.toISOString(),
       bankAccount: canSeeSensitive ? emp.bankAccount : undefined,
       ifscCode: canSeeSensitive ? emp.ifscCode : undefined,
@@ -195,7 +232,7 @@ router.get(
 router.patch(
   "/employees/:id",
   protect,
-  ownerOrAuthorize("SUPER_ADMIN", "ADMIN", "HR"),
+  ownerOrAuthorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER", "TEAM_LEADER", "EMPLOYEE", "INTERN"),
   async (req, res): Promise<void> => {
     const params = UpdateEmployeeParams.safeParse(req.params);
     if (!params.success) {
@@ -211,13 +248,22 @@ router.patch(
     const userRole = req.user!.role;
     const isAdmin = ["SUPER_ADMIN", "ADMIN", "HR"].includes(userRole);
 
+    // Fields that only admins/HR can change
+    const adminOnlyFields = ["role", "status", "employeeId", "departmentId", "designationId", "managerId"];
+
     const updateData: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(parsed.data)) {
       if (v === undefined) continue;
-      if (!isAdmin && ["role", "status", "employeeId", "departmentId", "designationId", "managerId"].includes(k)) {
+      if (!isAdmin && adminOnlyFields.includes(k)) {
+        // Employees can't change admin-only fields
         continue;
       }
       updateData[k] = v;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ error: "No updatable fields provided" });
+      return;
     }
 
     const [emp] = await db
@@ -230,11 +276,22 @@ router.patch(
       res.status(404).json({ error: "Employee not found" });
       return;
     }
+
+    // Resolve manager name
+    let managerName: string | null = null;
+    if (emp.managerId) {
+      const [mgr] = await db
+        .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName })
+        .from(employeesTable)
+        .where(eq(employeesTable.id, emp.managerId));
+      if (mgr) managerName = `${mgr.firstName} ${mgr.lastName}`;
+    }
+
     res.json({
       ...emp,
       departmentName: null,
       designationName: null,
-      managerName: null,
+      managerName,
       createdAt: emp.createdAt.toISOString(),
     });
   }
