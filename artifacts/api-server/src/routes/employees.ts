@@ -277,6 +277,17 @@ router.patch(
       return;
     }
 
+    // ── Sync employee status → user is_active ────────────────────────────────
+    // When admin sets employee to inactive/active, the linked user login
+    // account must be deactivated/activated too so they can't log in.
+    if (updateData.status !== undefined) {
+      const newIsActive = String(updateData.status).toLowerCase() === "active";
+      await db
+        .update(usersTable)
+        .set({ isActive: newIsActive })
+        .where(eq(usersTable.employeeId, params.data.id));
+    }
+
     // Resolve manager name
     let managerName: string | null = null;
     if (emp.managerId) {
