@@ -35,10 +35,109 @@ export default function Dashboard() {
     return <Redirect to="/profile" />;
   }
 
+  const isManager = user?.role === "MANAGER" || user?.role === "TEAM_LEADER";
+
   const { data: dashboard, isLoading: isLoadingDash } = useGetHrDashboard();
   const { data: attendance, isLoading: isLoadingAtt } = useGetTodayAttendance();
   const { data: pending, isLoading: isLoadingPend } = useGetPendingApprovals();
   const { data: activity, isLoading: isLoadingAct } = useGetRecentActivity();
+
+  // Manager-specific dashboard — team-focused, no org-wide HR stats
+  if (isManager) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-primary">{greeting}, {displayName}</h2>
+          <p className="text-muted-foreground">{format(today, "EEEE, MMMM d, yyyy")}</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
+              <Clock className="h-4 w-4 text-warning" />
+            </CardHeader>
+            <CardContent>
+              {isLoadingPend ? <Skeleton className="h-8 w-20" /> : (
+                <>
+                  <div className="text-2xl font-bold text-warning">{pending?.total || 0}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {pending?.leaves || 0} leaves · {pending?.expenses || 0} expenses
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+              <UserCheck className="h-4 w-4 text-success" />
+            </CardHeader>
+            <CardContent>
+              {isLoadingAtt ? <Skeleton className="h-8 w-20" /> : (
+                <>
+                  <div className="text-2xl font-bold text-success">{attendance?.presentCount || 0}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {attendance?.lateCount || 0} late · {attendance?.onLeaveCount || 0} on leave
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">On Leave Today</CardTitle>
+              <CalendarOff className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              {isLoadingAtt ? <Skeleton className="h-8 w-20" /> : (
+                <>
+                  <div className="text-2xl font-bold text-orange-500">{attendance?.onLeaveCount || 0}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Team members on approved leave</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Latest updates from your team</CardDescription>
+          </CardHeader>
+          <CardContent className="px-0">
+            {isLoadingAct ? (
+              <div className="space-y-4 px-6"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>
+            ) : (
+              <div className="max-h-[300px] overflow-y-auto px-6 space-y-4">
+                {(Array.isArray(activity) ? activity : []).map((item: any, i: number) => {
+                  const Icon = item.type === "leave" ? Calendar : item.type === "expense" ? Receipt : Clock;
+                  const colorClass = item.type === "leave" ? "text-warning bg-warning/10" : item.type === "expense" ? "text-destructive bg-destructive/10" : "text-primary bg-primary/10";
+                  return (
+                    <div key={item.id || i} className="flex items-start gap-4">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${colorClass}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{item.message}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {item.timestamp ? new Date(item.timestamp).toLocaleString() : ""}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {(!Array.isArray(activity) || activity.length === 0) && (
+                  <div className="text-center text-muted-foreground text-sm py-4">No recent activity</div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

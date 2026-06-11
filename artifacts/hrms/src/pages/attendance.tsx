@@ -59,7 +59,8 @@ export default function AttendancePage() {
   const role = user?.role ?? "";
   const isEmployee = role === "EMPLOYEE" || role === "INTERN";
   const isManager = role === "MANAGER" || role === "TEAM_LEADER";
-  const canApprove = role === "SUPER_ADMIN" || role === "ADMIN" || role === "MANAGER" || role === "TEAM_LEADER";
+  // Attendance approval: ADMIN and HR only (not manager)
+  const canApprove = ["SUPER_ADMIN", "ADMIN", "HR"].includes(role);
   const canSeeSettings = ["SUPER_ADMIN", "ADMIN", "HR"].includes(role);
 
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));

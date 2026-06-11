@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { useGetEmployee, useUpdateEmployee } from "@workspace/api-client-react";
+import { useGetEmployee, useUpdateEmployee, useGetLeaveBalance } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth, authFetch } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
@@ -50,7 +50,7 @@ function ChangePasswordDialog({
       const res = await authFetch("/api/auth/change-password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user?.email, oldPassword, newPassword }),
+        body: JSON.stringify({ oldPassword, newPassword }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -221,6 +221,10 @@ export default function MyProfile() {
     query: { enabled: !!employeeId, queryKey: [`/api/employees/${employeeId ?? 0}`] },
   });
 
+  const { data: leaveBalance, isLoading: isLoadingLeave } = useGetLeaveBalance(employeeId ?? 0, {
+    query: { enabled: !!employeeId, queryKey: [`/api/leaves/balance/${employeeId ?? 0}`] },
+  });
+
   const [editOpen, setEditOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
 
@@ -315,8 +319,9 @@ export default function MyProfile() {
 
       {/* Details Tabs */}
       <Tabs defaultValue="personal">
-        <TabsList className="max-w-xs h-auto p-1">
+        <TabsList className="max-w-sm h-auto p-1">
           <TabsTrigger value="personal" className="py-2">Personal Info</TabsTrigger>
+          <TabsTrigger value="leave" className="py-2">Leave Balance</TabsTrigger>
           <TabsTrigger value="account" className="py-2">Account</TabsTrigger>
         </TabsList>
 
@@ -341,6 +346,47 @@ export default function MyProfile() {
               <p className="font-medium">{employee.emergencyContact || "Not provided"}</p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="leave" className="mt-6 space-y-4">
+          {isLoadingLeave ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i}><CardContent className="p-4"><Skeleton className="h-16 w-full" /></CardContent></Card>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { title: "Casual", total: leaveBalance?.casual ?? 12, used: leaveBalance?.casualUsed ?? 0, color: "text-primary bg-primary/10" },
+                  { title: "Sick", total: leaveBalance?.sick ?? 12, used: leaveBalance?.sickUsed ?? 0, color: "text-warning bg-warning/10" },
+                  { title: "Earned", total: leaveBalance?.earned ?? 15, used: leaveBalance?.earnedUsed ?? 0, color: "text-success bg-success/10" },
+                  { title: "Unpaid", total: null, used: leaveBalance?.unpaidUsed ?? 0, color: "text-destructive bg-destructive/10" },
+                ].map((lb) => (
+                  <Card key={lb.title}>
+                    <CardContent className="p-4 text-center">
+                      <div className="text-xs text-muted-foreground mb-2 font-medium">{lb.title} Leave</div>
+                      <div className="text-3xl font-bold">
+                        {lb.total !== null ? lb.total - lb.used : lb.used}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {lb.total !== null ? "available" : "days taken"}
+                      </div>
+                      {lb.total !== null && (
+                        <div className={`mt-2 text-xs px-2 py-0.5 rounded-full inline-block ${lb.color}`}>
+                          {lb.used} / {lb.total} used
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Leave balances for {new Date().getFullYear()}. Contact HR to request adjustments.
+              </p>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="account" className="mt-6">

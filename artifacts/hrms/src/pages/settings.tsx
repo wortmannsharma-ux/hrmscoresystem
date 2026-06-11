@@ -15,8 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { MapPin, Plus, Trash2, Building2, CalendarDays, Edit2 } from "lucide-react";
+import { MapPin, Plus, Trash2, Building2, CalendarDays, Edit2, ShieldOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
 
 function HolidaysBadge({ type, isOptional }: { type: string; isOptional?: boolean }) {
   if (isOptional) return <Badge variant="outline">Optional</Badge>;
@@ -35,6 +36,18 @@ function HolidaysBadge({ type, isOptional }: { type: string; isOptional?: boolea
 export default function Settings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Hard guard — only SUPER_ADMIN, ADMIN, HR can access settings
+  if (!["SUPER_ADMIN", "ADMIN", "HR"].includes(user?.role ?? "")) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-3 text-muted-foreground">
+        <ShieldOff className="h-10 w-10 opacity-40" />
+        <p className="text-lg font-medium">Access Denied</p>
+        <p className="text-sm">You don't have permission to view system settings.</p>
+      </div>
+    );
+  }
   const currentYear = new Date().getFullYear();
   const [holidayYear, setHolidayYear] = useState(currentYear);
   const [addLocOpen, setAddLocOpen] = useState(false);

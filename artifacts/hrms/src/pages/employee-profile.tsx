@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, Hash, Building2, Briefcase,
-  Award, ShieldAlert, CreditCard, Pencil, KeyRound, User, CalendarDays,
+  Award, ShieldAlert, CreditCard, Pencil, KeyRound, User, CalendarDays, ShieldOff,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth, authFetch } from "@/lib/auth-context";
@@ -501,6 +501,23 @@ export default function EmployeeProfile() {
 
   const isAdmin = ["SUPER_ADMIN", "ADMIN"].includes(user?.role ?? "");
   const isHR = user?.role === "HR";
+  const isManager = user?.role === "MANAGER" || user?.role === "TEAM_LEADER";
+  const isEmployee = user?.role === "EMPLOYEE" || user?.role === "INTERN";
+
+  // Access guard: employees can only see their own profile
+  // Managers can see their team (checked after data loads) but not others
+  // Redirect employee to /profile if trying to view someone else
+  if (isEmployee && user?.employeeId !== employeeId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-3 text-muted-foreground">
+        <ShieldOff className="h-10 w-10 opacity-40" />
+        <p className="text-lg font-medium">Access Denied</p>
+        <p className="text-sm">You can only view your own profile.</p>
+        <a href="/profile" className="text-primary underline text-sm">Go to My Profile</a>
+      </div>
+    );
+  }
+
   const canEdit = isAdmin || isHR || user?.employeeId === employeeId;
   // Both Admin and HR can reset passwords (HR cannot reset Admin passwords — backend enforces this)
   const canResetPassword = isAdmin || isHR;

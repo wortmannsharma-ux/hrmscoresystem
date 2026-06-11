@@ -28,8 +28,8 @@ export default function ExpensesPage() {
   const role = user?.role ?? "";
 
   const isEmployee = role === "EMPLOYEE" || role === "INTERN";
-  // HR cannot approve expenses — only ADMIN, SUPER_ADMIN, MANAGER, TEAM_LEADER can
-  const canApprove = ["SUPER_ADMIN", "ADMIN", "MANAGER", "TEAM_LEADER"].includes(role);
+  // Expense approval: only MANAGER and TEAM_LEADER approve expenses
+  const canApprove = ["MANAGER", "TEAM_LEADER"].includes(role);
   const isManager = role === "MANAGER" || role === "TEAM_LEADER";
 
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));

@@ -9,8 +9,9 @@ import { z } from "zod";
 const router: IRouter = Router();
 
 // ── POST /api/auth/register ───────────────────────────────────────────────────
-// Matches hrms-backend: POST /api/auth/register
-router.post("/auth/register", async (req, res): Promise<void> => {
+// Restricted to SUPER_ADMIN and ADMIN only.
+// For public-facing registration, use POST /api/users instead.
+router.post("/auth/register", protect, authorize("SUPER_ADMIN", "ADMIN"), async (req, res): Promise<void> => {
   try {
     const { name, email, password, role = "EMPLOYEE" } = req.body;
 
@@ -162,15 +163,16 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 });
 
 // ── PUT /api/auth/change-password ─────────────────────────────────────────────
-// Matches hrms-backend: PUT /api/auth/change-password
-router.put("/auth/change-password", async (req, res): Promise<void> => {
+// Requires the user to be logged in — verifies old password before setting new one
+router.put("/auth/change-password", protect, async (req, res): Promise<void> => {
   try {
-    const { email, oldPassword, newPassword } = req.body;
+    const { oldPassword, newPassword } = req.body;
 
+    // Get the email from the JWT token (not from body — prevents acting on other accounts)
     const rows = await db
-      .select({ id: usersTable.id, password: usersTable.password })
+      .select({ id: usersTable.id, password: usersTable.password, email: usersTable.email })
       .from(usersTable)
-      .where(eq(usersTable.email, email?.toLowerCase() ?? ""));
+      .where(eq(usersTable.id, req.user!.userId));
 
     const user = rows[0];
     if (!user) {
@@ -180,7 +182,12 @@ router.put("/auth/change-password", async (req, res): Promise<void> => {
 
     const match = await bcrypt.compare(oldPassword, user.password);
     if (!match) {
-      res.status(400).json({ message: "Old password is incorrect" });
+      res.status(400).json({ message: "Current password is incorrect" });
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      res.status(400).json({ message: "New password must be at least 6 characters" });
       return;
     }
 
