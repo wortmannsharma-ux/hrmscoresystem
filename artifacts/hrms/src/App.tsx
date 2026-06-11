@@ -19,6 +19,7 @@ import Expenses from "@/pages/expenses";
 import Payroll from "@/pages/payroll";
 import Recruitment from "@/pages/recruitment";
 import Settings from "@/pages/settings";
+import MyProfile from "@/pages/my-profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ function ProtectedRouter() {
     <AppLayout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/profile" component={MyProfile} />
         <Route path="/employees/new" component={Employees} />
         <Route path="/employees/:id" component={EmployeeProfile} />
         <Route path="/employees" component={Employees} />

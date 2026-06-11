@@ -1,5 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
+import { Redirect } from "wouter";
 import {
   useGetHrDashboard,
   useGetTodayAttendance,
@@ -28,6 +29,11 @@ export default function Dashboard() {
   const displayName = user?.firstName
     ? user.firstName
     : user?.name?.split(" ")[0] ?? "there";
+
+  // EMPLOYEE and INTERN don't get a dashboard — redirect to their profile
+  if (user?.role === "EMPLOYEE" || user?.role === "INTERN") {
+    return <Redirect to="/profile" />;
+  }
 
   const { data: dashboard, isLoading: isLoadingDash } = useGetHrDashboard();
   const { data: attendance, isLoading: isLoadingAtt } = useGetTodayAttendance();

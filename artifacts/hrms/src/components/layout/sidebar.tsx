@@ -14,6 +14,7 @@ import {
   LogOut,
   Receipt,
   ShieldCheck,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -37,82 +38,80 @@ const ALL_NAV = [
     name: "Dashboard",
     href: "/",
     icon: LayoutDashboard,
-    // Everyone sees the dashboard
+    // Admins, HR, Managers see the dashboard. Employees/Interns go to My Profile instead.
+    visibleTo: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER", "TEAM_LEADER"] as Role[],
+  },
+  {
+    name: "My Profile",
+    href: "/profile",
+    icon: UserCircle,
+    // Only employees/interns get this — their personal landing page
+    visibleTo: ["EMPLOYEE", "INTERN"] as Role[],
   },
   {
     name: "Directory",
     href: "/employees",
     icon: Users,
-    // SUPER_ADMIN, ADMIN, HR see all employees.
-    // MANAGER, TEAM_LEADER see only their team (filtered on the page itself).
-    // EMPLOYEE / INTERN do NOT get a directory link — they use their own profile.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "HR", "MANAGER", "TEAM_LEADER"] as Role[],
   },
   {
     name: "Users",
     href: "/users",
     icon: ShieldCheck,
-    // SUPER_ADMIN, ADMIN and HR can manage login accounts.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "HR"] as Role[],
   },
   {
     name: "Org Chart",
     href: "/departments",
     icon: Building2,
-    // Only admins manage departments/designations.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "HR"] as Role[],
   },
   {
     name: "Attendance",
     href: "/attendance",
     icon: CalendarClock,
-    // Everyone tracks attendance
+    // Everyone can mark attendance
   },
   {
     name: "Field Tracking",
     href: "/field-tracking",
     icon: MapPin,
-    // Managers track field staff. HR and employees don't need it.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "MANAGER", "TEAM_LEADER"] as Role[],
   },
   {
     name: "Vendor Visits",
     href: "/visits",
     icon: BriefcaseBusiness,
-    // Managers oversee vendor visits. HR doesn't manage visits.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "MANAGER", "TEAM_LEADER"] as Role[],
   },
   {
     name: "Time Off",
     href: "/leaves",
     icon: Car,
-    // Everyone applies for / approves leaves
+    // Everyone can apply for leaves
   },
   {
     name: "Expenses",
     href: "/expenses",
     icon: Receipt,
-    // Everyone submits / approves expenses
+    // Everyone can submit expenses
   },
   {
     name: "Payroll",
     href: "/payroll",
     icon: Banknote,
-    // Only HR and admins manage payroll. Managers don't see it.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "HR"] as Role[],
   },
   {
     name: "Recruitment",
     href: "/recruitment",
     icon: GraduationCap,
-    // Only HR and admins manage hiring. Managers don't see it.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "HR"] as Role[],
   },
   {
     name: "Settings",
     href: "/settings",
     icon: Settings,
-    // Only admins and HR manage system settings.
     visibleTo: ["SUPER_ADMIN", "ADMIN", "HR"] as Role[],
   },
 ] as const;

@@ -27,18 +27,23 @@ export default function ExpensesPage() {
   const { user } = useAuth();
   const role = user?.role ?? "";
 
+  const isEmployee = role === "EMPLOYEE" || role === "INTERN";
   // HR cannot approve expenses — only ADMIN, SUPER_ADMIN, MANAGER, TEAM_LEADER can
   const canApprove = ["SUPER_ADMIN", "ADMIN", "MANAGER", "TEAM_LEADER"].includes(role);
   const isManager = role === "MANAGER" || role === "TEAM_LEADER";
-  
+
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [employeeId, setEmployeeId] = useState<string>("all");
+  // Employees locked to their own ID
+  const [employeeId, setEmployeeId] = useState<string>(
+    isEmployee && user?.employeeId ? user.employeeId.toString() : "all"
+  );
   const [status, setStatus] = useState<string>("all");
 
   const [isSubmitDialog, setIsSubmitDialog] = useState(false);
-  const [submitData, setSubmitData] = useState({ 
-    employeeId: "", category: "Food", amount: "", date: format(new Date(), "yyyy-MM-dd"), 
-    description: "", isAutoTravel: false, km: "", rate: "5" 
+  const [submitData, setSubmitData] = useState({
+    employeeId: isEmployee && user?.employeeId ? user.employeeId.toString() : "",
+    category: "Food", amount: "", date: format(new Date(), "yyyy-MM-dd"),
+    description: "", isAutoTravel: false, km: "", rate: "5",
   });
 
   const queryParams = { 
@@ -53,25 +58,30 @@ export default function ExpensesPage() {
 
   const { data: allEmployeesRaw } = useListEmployees();
 
-  // Managers see only their team's employees
+  // Managers see only their team's employees; employees see no dropdown
   const allEmployees = (allEmployeesRaw || []) as any[];
-  const employees = isManager && user?.employeeId
+  const employees = isEmployee
+    ? []
+    : isManager && user?.employeeId
     ? allEmployees.filter((e: any) => e.managerId === user.employeeId)
     : allEmployees;
 
-  // Managers only see expenses from their team members
+  // Filter expenses by role
   const expenses = useMemo(() => {
     if (!rawExpenses) return [];
+    // Employees see only their own
+    if (isEmployee && user?.employeeId) {
+      return (rawExpenses as any[]).filter((exp: any) => exp.employeeId === user.employeeId);
+    }
+    // Managers see only their team
     if (isManager && user?.employeeId) {
       const teamIds = new Set(
-        allEmployees
-          .filter((e: any) => e.managerId === user.employeeId)
-          .map((e: any) => e.id)
+        allEmployees.filter((e: any) => e.managerId === user.employeeId).map((e: any) => e.id)
       );
       return (rawExpenses as any[]).filter((exp: any) => teamIds.has(exp.employeeId));
     }
     return rawExpenses as any[];
-  }, [rawExpenses, isManager, user?.employeeId, allEmployees]);
+  }, [rawExpenses, isEmployee, isManager, user?.employeeId, allEmployees]);
 
   const createExpense = useCreateExpense({
     mutation: {
@@ -95,22 +105,25 @@ export default function ExpensesPage() {
   });
 
   const handleSubmit = () => {
+    const empId = isEmployee && user?.employeeId ? user.employeeId : Number(submitData.employeeId);
+    if (!empId) { toast({ title: "Select an employee", variant: "destructive" }); return; }
+
     let finalAmount = Number(submitData.amount);
     if (submitData.isAutoTravel) {
       finalAmount = Number(submitData.km) * Number(submitData.rate);
     }
-    
+
     createExpense.mutate({
       data: {
-        employeeId: Number(submitData.employeeId),
+        employeeId: empId,
         category: submitData.category as any,
         amount: finalAmount,
         date: submitData.date,
         description: submitData.description,
         isAutoTravel: submitData.isAutoTravel,
         travelKm: submitData.isAutoTravel ? Number(submitData.km) : undefined,
-        travelRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined
-      }
+        travelRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined,
+      },
     });
   };
 
@@ -151,17 +164,20 @@ export default function ExpensesPage() {
               <DialogTitle>Submit New Expense</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="emp">Employee</Label>
-                <Select value={submitData.employeeId} onValueChange={v => setSubmitData({...submitData, employeeId: v})}>
-                  <SelectTrigger id="emp"><SelectValue placeholder="Select employee" /></SelectTrigger>
-                  <SelectContent>
-                    {employees.map((emp: any) => (
-                      <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Employee selector — hidden for regular employees (auto-filled) */}
+              {!isEmployee && (
+                <div className="grid gap-2">
+                  <Label htmlFor="emp">Employee</Label>
+                  <Select value={submitData.employeeId} onValueChange={v => setSubmitData({...submitData, employeeId: v})}>
+                    <SelectTrigger id="emp"><SelectValue placeholder="Select employee" /></SelectTrigger>
+                    <SelectContent>
+                      {employees.map((emp: any) => (
+                        <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="date">Date</Label>
@@ -253,17 +269,19 @@ export default function ExpensesPage() {
 
       <div className="flex flex-wrap items-center gap-4 py-4">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[200px]" />
-        <Select value={employeeId} onValueChange={setEmployeeId}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All Employees" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Employees</SelectItem>
-            {employees.map((emp: any) => (
-              <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!isEmployee && (
+          <Select value={employeeId} onValueChange={setEmployeeId}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All Employees" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Employees</SelectItem>
+              {employees.map((emp: any) => (
+                <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Status" />

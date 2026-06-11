@@ -57,11 +57,16 @@ export default function AttendancePage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const role = user?.role ?? "";
+  const isEmployee = role === "EMPLOYEE" || role === "INTERN";
   const isManager = role === "MANAGER" || role === "TEAM_LEADER";
   const canApprove = role === "SUPER_ADMIN" || role === "ADMIN" || role === "MANAGER" || role === "TEAM_LEADER";
+  const canSeeSettings = ["SUPER_ADMIN", "ADMIN", "HR"].includes(role);
 
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [employeeFilter, setEmployeeFilter] = useState<string>("all");
+  // Employees always see only their own records — lock the filter to their employee ID
+  const [employeeFilter, setEmployeeFilter] = useState<string>(
+    isEmployee && user?.employeeId ? user.employeeId.toString() : "all"
+  );
 
   const [isSmartModal, setIsSmartModal] = useState(false);
   const [isEndDialog, setIsEndDialog] = useState(false);
@@ -212,10 +217,12 @@ export default function AttendancePage() {
   };
 
   const handleEndDay = () => {
-    if (!endData.employeeId) return;
+    // For employees, use their own ID directly
+    const empId = isEmployee && user?.employeeId ? user.employeeId : Number(endData.employeeId);
+    if (!empId) return;
     dayEndMutation.mutate({
       data: {
-        employeeId: Number(endData.employeeId),
+        employeeId: empId,
         eodVisits: Number(endData.visits) || 0,
         eodKm: Number(endData.km) || 0,
         eodLeads: Number(endData.leads) || 0,
@@ -289,53 +296,57 @@ export default function AttendancePage() {
       <Tabs defaultValue="records">
         <TabsList>
           <TabsTrigger value="records">Records</TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-3.5 w-3.5 mr-1.5" /> Settings
-          </TabsTrigger>
+          {canSeeSettings && (
+            <TabsTrigger value="settings">
+              <Settings className="h-3.5 w-3.5 mr-1.5" /> Settings
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="records" className="space-y-4 mt-4">
-          {/* Today's stats */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Present Today</CardTitle>
-                <UserCheck className="h-4 w-4 text-success" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-success">{todayStats?.presentCount || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Absent Today</CardTitle>
-                <UserX className="h-4 w-4 text-destructive" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{todayStats?.absentCount || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">On Leave</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{todayStats?.onLeaveCount || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Late In</CardTitle>
-                <Clock className="h-4 w-4 text-warning" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{todayStats?.lateCount || 0}</div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Today's stats — only for managers/admins, not for individual employees */}
+          {!isEmployee && (
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+                  <UserCheck className="h-4 w-4 text-success" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-success">{todayStats?.presentCount || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Absent Today</CardTitle>
+                  <UserX className="h-4 w-4 text-destructive" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{todayStats?.absentCount || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">On Leave</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{todayStats?.onLeaveCount || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Late In</CardTitle>
+                  <Clock className="h-4 w-4 text-warning" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{todayStats?.lateCount || 0}</div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-          {/* Filters */}
+          {/* Filters — employees see only month picker, no employee selector */}
           <div className="flex items-center gap-4">
             <Input
               type="month"
@@ -344,19 +355,21 @@ export default function AttendancePage() {
               className="w-[200px]"
               data-testid="filter-month"
             />
-            <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-              <SelectTrigger className="w-[200px]" data-testid="filter-employee">
-                <SelectValue placeholder="All Employees" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Employees</SelectItem>
-                {employeesList.map((emp: any) => (
-                  <SelectItem key={emp.id} value={emp.id.toString()}>
-                    {emp.firstName} {emp.lastName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isEmployee && (
+              <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
+                <SelectTrigger className="w-[200px]" data-testid="filter-employee">
+                  <SelectValue placeholder="All Employees" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Employees</SelectItem>
+                  {employeesList.map((emp: any) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Monthly summary bar */}
@@ -749,12 +762,16 @@ export default function AttendancePage() {
         onOpenChange={setIsSmartModal}
         onSubmit={handleSmartDayStart}
         isSubmitting={dayStartMutation.isPending}
-        employees={employeesList.map((e: any) => ({
-          id: e.id,
-          firstName: e.firstName,
-          lastName: e.lastName,
-          role: e.role,
-        }))}
+        employees={
+          isEmployee && user?.employeeId
+            // Employee only sees themselves
+            ? employeesList.filter((e: any) => e.id === user.employeeId).map((e: any) => ({
+                id: e.id, firstName: e.firstName, lastName: e.lastName, role: e.role,
+              }))
+            : employeesList.map((e: any) => ({
+                id: e.id, firstName: e.firstName, lastName: e.lastName, role: e.role,
+              }))
+        }
         officeLocations={(officeLocations || []) as any[]}
         settings={settings}
       />
@@ -766,21 +783,24 @@ export default function AttendancePage() {
             <DialogTitle>End of Day Report</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Employee</Label>
-              <Select value={endData.employeeId} onValueChange={(v) => setEndData({ ...endData, employeeId: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employeesList.map((emp: any) => (
-                    <SelectItem key={emp.id} value={emp.id.toString()}>
-                      {emp.firstName} {emp.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Employee selector — hidden for regular employees (auto-filled) */}
+            {!isEmployee && (
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <Select value={endData.employeeId} onValueChange={(v) => setEndData({ ...endData, employeeId: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employeesList.map((emp: any) => (
+                      <SelectItem key={emp.id} value={emp.id.toString()}>
+                        {emp.firstName} {emp.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Visits</Label>
@@ -810,7 +830,11 @@ export default function AttendancePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEndDialog(false)}>Cancel</Button>
-            <Button onClick={handleEndDay} disabled={dayEndMutation.isPending || !endData.employeeId} data-testid="submit-day-end">
+            <Button
+              onClick={handleEndDay}
+              disabled={dayEndMutation.isPending || (!isEmployee && !endData.employeeId)}
+              data-testid="submit-day-end"
+            >
               {dayEndMutation.isPending ? "Submitting..." : "Submit EOD"}
             </Button>
           </DialogFooter>
