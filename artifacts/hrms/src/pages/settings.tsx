@@ -19,11 +19,7 @@ import { MapPin, Plus, Trash2, Building2, CalendarDays, Edit2, ShieldOff } from 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 
-<<<<<<< HEAD
 function HolidaysBadge({ type, isOptional }: { type: string; isOptional?: boolean | null }) {
-=======
-function HolidaysBadge({ type, isOptional }: { type: string; isOptional?: boolean }) {
->>>>>>> aalekh
   if (isOptional) return <Badge variant="outline">Optional</Badge>;
   const colors: Record<string, string> = {
     National: "bg-primary/10 text-primary",

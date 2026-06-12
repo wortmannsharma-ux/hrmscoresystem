@@ -71,11 +71,7 @@ export default function VisitsPage() {
       data: {
         employeeId: Number(visitData.employeeId),
         vendorId: Number(visitData.vendorId),
-<<<<<<< HEAD
         selfieUrl: visitData.checkInTime || new Date().toISOString(),
-=======
-        selfieUrl: "https://placehold.co/100x100",
->>>>>>> aalekh
         lat: visitData.latitude ? Number(visitData.latitude) : undefined,
         lng: visitData.longitude ? Number(visitData.longitude) : undefined,
         orderValue: visitData.orderValue ? Number(visitData.orderValue) : undefined,

@@ -135,13 +135,8 @@ export default function ExpensesPage() {
         billPhoto: submitData.billPhoto || null,
         isAutoTravel: submitData.isAutoTravel,
         travelKm: submitData.isAutoTravel ? Number(submitData.km) : undefined,
-<<<<<<< HEAD
         travelRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined
       }
-=======
-        travelRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined,
-      },
->>>>>>> aalekh
     });
   };
 
