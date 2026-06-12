@@ -182,7 +182,7 @@ export default function DepartmentsPage() {
                   </div>
                   <DialogFooter>
                     <Button
-                      onClick={() => createDesig.mutate({ data: { title: desigData.title, departmentId: desigData.departmentId ? Number(desigData.departmentId) : undefined, level: desigData.level || undefined } })}
+                      onClick={() => createDesig.mutate({ data: { name: desigData.title, departmentId: desigData.departmentId ? Number(desigData.departmentId) : undefined, level: desigData.level ? Number(desigData.level) : undefined } })}
                       disabled={createDesig.isPending || !desigData.title}
                     >
                       Create Designation

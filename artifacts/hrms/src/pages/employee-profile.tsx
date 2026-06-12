@@ -61,7 +61,7 @@ export default function EmployeeProfile() {
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
             <Avatar className="h-24 w-24 border-4 border-background shadow-md">
-              <AvatarImage src={employee.avatarUrl} alt={employee.firstName} />
+              <AvatarImage src={employee.profilePhoto || undefined} alt={employee.firstName} />
               <AvatarFallback className="text-2xl bg-primary/10 text-primary font-bold">
                 {employee.firstName?.[0]}{employee.lastName?.[0]}
               </AvatarFallback>
@@ -85,11 +85,11 @@ export default function EmployeeProfile() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
-                  <span>{employee.department?.name || 'No Department'}</span>
+                  <span>{(employee as any).departmentName || 'No Department'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4" />
-                  <span>{employee.designation?.name || 'No Designation'}</span>
+                  <span>{(employee as any).designationName || 'No Designation'}</span>
                 </div>
               </div>
             </div>
@@ -159,11 +159,11 @@ export default function EmployeeProfile() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               <div className="space-y-1">
                 <div className="text-sm text-muted-foreground mb-1">Contact Name</div>
-                <p className="font-medium">{employee.emergencyContactName || 'Not provided'}</p>
+                <p className="font-medium">{employee.emergencyContact || 'Not provided'}</p>
               </div>
               <div className="space-y-1">
                 <div className="text-sm text-muted-foreground mb-1">Contact Phone</div>
-                <p className="font-medium">{employee.emergencyContactPhone || 'Not provided'}</p>
+                <p className="font-medium">{employee.emergencyContact ? 'See contact above' : 'Not provided'}</p>
               </div>
             </CardContent>
           </Card>
@@ -186,13 +186,13 @@ export default function EmployeeProfile() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                   <CreditCard className="h-4 w-4" /> Account Number
                 </div>
-                <p className="font-medium tracking-widest">{employee.bankAccountNumber ? '•••• ' + employee.bankAccountNumber.slice(-4) : 'Not provided'}</p>
+                <p className="font-medium tracking-widest">{employee.bankAccount ? '•••• ' + employee.bankAccount.slice(-4) : 'Not provided'}</p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                   <Hash className="h-4 w-4" /> IFSC Code
                 </div>
-                <p className="font-medium uppercase tracking-wider">{employee.bankIfsc || 'Not provided'}</p>
+                <p className="font-medium uppercase tracking-wider">{employee.ifscCode || 'Not provided'}</p>
               </div>
             </CardContent>
           </Card>
@@ -207,9 +207,9 @@ export default function EmployeeProfile() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <LeaveCard title="Casual Leave" balance={leaveBalance?.casualBalance || 0} used={leaveBalance?.casualUsed || 0} colorClass="text-primary bg-primary/10" />
-              <LeaveCard title="Sick Leave" balance={leaveBalance?.sickBalance || 0} used={leaveBalance?.sickUsed || 0} colorClass="text-warning bg-warning/10" />
-              <LeaveCard title="Earned Leave" balance={leaveBalance?.earnedBalance || 0} used={leaveBalance?.earnedUsed || 0} colorClass="text-success bg-success/10" />
+              <LeaveCard title="Casual Leave" balance={leaveBalance?.casual || 0} used={leaveBalance?.casualUsed || 0} colorClass="text-primary bg-primary/10" />
+              <LeaveCard title="Sick Leave" balance={leaveBalance?.sick || 0} used={leaveBalance?.sickUsed || 0} colorClass="text-warning bg-warning/10" />
+              <LeaveCard title="Earned Leave" balance={leaveBalance?.earned || 0} used={leaveBalance?.earnedUsed || 0} colorClass="text-success bg-success/10" />
               <Card className="border-destructive/20 bg-destructive/5">
                 <CardContent className="p-6 flex flex-col items-center justify-center h-full">
                   <div className="text-sm font-medium text-destructive mb-2">Unpaid Leave</div>

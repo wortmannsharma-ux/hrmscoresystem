@@ -18,7 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { MapPin, Plus, Trash2, Building2, CalendarDays, Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-function HolidaysBadge({ type, isOptional }: { type: string; isOptional: boolean }) {
+function HolidaysBadge({ type, isOptional }: { type: string; isOptional?: boolean | null }) {
   if (isOptional) return <Badge variant="outline">Optional</Badge>;
   const colors: Record<string, string> = {
     National: "bg-primary/10 text-primary",
