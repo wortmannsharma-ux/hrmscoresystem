@@ -5,7 +5,7 @@ services:
     region: singapore
     plan: free
     rootDir: .
-    buildCommand: npx --yes pnpm@11.5.2 install --no-frozen-lockfile && npx --yes pnpm@11.5.2 --filter @workspace/db build && npx --yes pnpm@11.5.2 --filter @workspace/api-zod build && npx --yes pnpm@11.5.2 --filter @workspace/api-client-react build && npx --yes pnpm@11.5.2 --filter @workspace/api-server build
+    buildCommand: npx --yes pnpm@11.5.2 install --no-frozen-lockfile --ignore-scripts && npx --yes pnpm@11.5.2 --filter @workspace/db build && npx --yes pnpm@11.5.2 --filter @workspace/api-zod build && npx --yes pnpm@11.5.2 --filter @workspace/api-client-react build && npx --yes pnpm@11.5.2 --filter @workspace/api-server build
     startCommand: node artifacts/api-server/dist/index.mjs
     envVars:
       - key: NODE_ENV
