@@ -1,8 +1,4 @@
 {
-  "buildCommand": "cd artifacts/hrms && npx vite build",
-  "outputDirectory": "artifacts/hrms/dist",
-  "installCommand": "npx --yes pnpm@11.5.2 install --no-frozen-lockfile --ignore-scripts",
-  "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
