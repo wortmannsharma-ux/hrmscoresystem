@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGetLiveLocations, useGetTravelSummary, useGetVisitSummary, useListEmployees } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Navigation, Users, TrendingUp, Package, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth-context";
 
 // ── Google Maps API key ───────────────────────────────────────────────────────
 const MAPS_API_KEY = "AIzaSyBn64FSrMCbamU0B-3hhORsqQhq5NPk5ZA";
@@ -185,9 +186,22 @@ export default function Tracking() {
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [date, setDate] = useState(today);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: liveLocations = [], isLoading: loadingLive } = useGetLiveLocations();
   const { data: employees = [] } = useListEmployees();
+
+  const isManager = user?.role === "MANAGER" || user?.role === "TEAM_LEADER";
+
+  // Managers only see their direct reports in the dropdown
+  const selectableEmployees = isManager && user?.employeeId
+    ? employees.filter((e) => (e as any).managerId === user.employeeId)
+    : employees;
+
+  // Managers only see their team's live locations on the map
+  const teamIds = isManager && user?.employeeId
+    ? new Set(selectableEmployees.map((e) => e.id))
+    : null;
 
   const empId = selectedEmployee !== "all" ? parseInt(selectedEmployee, 10) : undefined;
 
@@ -200,11 +214,15 @@ export default function Tracking() {
     { query: { queryKey: empId ? ["visit-summary", empId, date] : ["visit-summary", date] } }
   );
 
-  // Filter locations by selected employee
-  const visibleLocations = (selectedEmployee === "all"
-    ? liveLocations
-    : liveLocations.filter((l) => l.employeeId === empId)
-  ) as LiveLocation[];
+  // Filter locations: by selected employee, then by team if manager
+  const visibleLocations = (() => {
+    let locs = liveLocations as LiveLocation[];
+    // Managers only see their team
+    if (teamIds) locs = locs.filter((l) => teamIds.has(l.employeeId));
+    // Further filter by selected employee
+    if (selectedEmployee !== "all") locs = locs.filter((l) => l.employeeId === empId);
+    return locs;
+  })();
 
   const activeCount = liveLocations.filter((l) => l.isActive).length;
 
@@ -231,7 +249,7 @@ export default function Tracking() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Employees</SelectItem>
-              {employees.map((e) => (
+              {selectableEmployees.map((e) => (
                 <SelectItem key={e.id} value={String(e.id)}>
                   {e.firstName} {e.lastName}
                 </SelectItem>
