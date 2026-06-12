@@ -1,8 +1,4 @@
 {
-  "framework": "vite",
-  "outputDirectory": "dist",
-  "buildCommand": "cd ../.. && npx --yes pnpm@11.5.2 install --no-frozen-lockfile --ignore-scripts && cd artifacts/hrms && npx vite build",
-  "installCommand": "echo 'install handled in buildCommand'",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
