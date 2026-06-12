@@ -1,11 +1,9 @@
 import React from "react";
 import { format } from "date-fns";
 import { Redirect } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  useGetHrDashboard,
-  useGetTodayAttendance,
-  useGetPendingApprovals,
-  useGetRecentActivity,
+  useGetHrDashboard, useGetTodayAttendance, useGetPendingApprovals, useGetRecentActivity,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,6 +39,13 @@ export default function Dashboard() {
   const { data: attendance, isLoading: isLoadingAtt } = useGetTodayAttendance();
   const { data: pending, isLoading: isLoadingPend } = useGetPendingApprovals();
   const { data: activity, isLoading: isLoadingAct } = useGetRecentActivity();
+
+  // ── Auto-refresh dashboard every 2 minutes ──────────────────────────────
+  const queryClient = useQueryClient();
+  React.useEffect(() => {
+    const id = setInterval(() => queryClient.invalidateQueries(), 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [queryClient]);
 
   // Manager-specific dashboard — team-focused, no org-wide HR stats
   if (isManager) {

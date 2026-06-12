@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Eye, UserPlus, Filter, Users, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -449,6 +450,11 @@ export default function Employees() {
     queryClient.refetchQueries({ queryKey: ["/api/employees"], exact: false });
   };
 
+  // ── Pagination ──────────────────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pagedEmployees = usePagination(employees ?? [], page, pageSize);
+
   // Build initial values for edit dialog
   const editInitialValues = editEmployee
     ? {
@@ -555,50 +561,31 @@ export default function Employees() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="h-10 w-10 rounded-full" />
-                        <div className="space-y-2">
-                          <Skeleton className="h-4 w-[120px]" />
-                          <Skeleton className="h-3 w-[80px]" />
-                        </div>
-                      </div>
-                    </TableCell>
-                    {Array.from({ length: 6 }).map((_, j) => (
-                      <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>
-                    ))}
+                    <TableCell><div className="flex items-center gap-3"><Skeleton className="h-10 w-10 rounded-full" /><div className="space-y-2"><Skeleton className="h-4 w-[120px]" /><Skeleton className="h-3 w-[80px]" /></div></div></TableCell>
+                    {Array.from({ length: 6 }).map((_, j) => (<TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>))}
                     <TableCell className="text-right"><Skeleton className="h-8 w-16 rounded-md inline-block" /></TableCell>
                   </TableRow>
                 ))
-              ) : employees?.length === 0 ? (
+              ) : pagedEmployees.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center">
                       {isManager ? (
-                        <>
-                          <Users className="h-8 w-8 mb-2 text-muted-foreground/50" />
-                          <p>No team members are assigned to you yet.</p>
-                          <p className="text-xs mt-1">Ask HR to set your employee record as their manager.</p>
-                        </>
+                        <><Users className="h-8 w-8 mb-2 text-muted-foreground/50" /><p>No team members assigned yet.</p></>
                       ) : (
-                        <>
-                          <Filter className="h-8 w-8 mb-2 text-muted-foreground/50" />
-                          <p>No employees found matching the filters.</p>
-                        </>
+                        <><Filter className="h-8 w-8 mb-2 text-muted-foreground/50" /><p>No employees found.</p></>
                       )}
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                employees?.map((emp) => (
+                pagedEmployees.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-muted/50 transition-colors">
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border border-border">
                           <AvatarImage src={emp.profilePhoto || undefined} alt={emp.firstName} />
-                          <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                            {emp.firstName?.[0]}{emp.lastName?.[0]}
-                          </AvatarFallback>
+                          <AvatarFallback className="bg-primary/10 text-primary font-medium">{emp.firstName?.[0]}{emp.lastName?.[0]}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
                           <span className="font-medium text-sm">{emp.firstName} {emp.lastName}</span>
@@ -609,42 +596,22 @@ export default function Employees() {
                     <TableCell className="font-medium text-xs">{emp.employeeId}</TableCell>
                     <TableCell className="text-sm">{emp.departmentName || "—"}</TableCell>
                     <TableCell className="text-sm">{emp.designationName || "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {(emp as any).managerName || "—"}
-                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{(emp as any).managerName || "—"}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={
-                          emp.status?.toLowerCase() === "active"
-                            ? "bg-success/10 text-success border-success/20"
-                            : "bg-destructive/10 text-destructive border-destructive/20"
-                        }
-                      >
+                      <Badge variant="outline" className={emp.status?.toLowerCase() === "active" ? "bg-success/10 text-success border-success/20" : "bg-destructive/10 text-destructive border-destructive/20"}>
                         {emp.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">
-                      {emp.joiningDate ? format(new Date(emp.joiningDate), "MMM d, yyyy") : "—"}
-                    </TableCell>
+                    <TableCell className="text-sm">{emp.joiningDate ? format(new Date(emp.joiningDate), "MMM d, yyyy") : "—"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Edit — for admin/HR or own profile */}
                         {(isAdmin || emp.id === user?.employeeId) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            data-testid={`button-edit-${emp.id}`}
-                            onClick={() => setEditEmployee(emp as EmployeeRow)}
-                          >
+                          <Button variant="ghost" size="icon" data-testid={`button-edit-${emp.id}`} onClick={() => setEditEmployee(emp as EmployeeRow)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                         )}
-                        {/* View */}
                         <Link href={`/employees/${emp.id}`}>
-                          <Button variant="ghost" size="icon" data-testid={`button-view-${emp.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <Button variant="ghost" size="icon" data-testid={`button-view-${emp.id}`}><Eye className="h-4 w-4" /></Button>
                         </Link>
                       </div>
                     </TableCell>
@@ -654,6 +621,13 @@ export default function Employees() {
             </TableBody>
           </Table>
         </div>
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          total={employees?.length ?? 0}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+        />
       </Card>
 
       {/* Add Employee Dialog */}

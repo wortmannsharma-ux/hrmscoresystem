@@ -2,13 +2,9 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useListLeaves,
-  useApproveLeave,
-  useCreateLeave,
-  useListHolidays,
-  useListEmployees,
-  getListLeavesQueryKey,
-  getListHolidaysQueryKey,
+  useListLeaves, useApproveLeave, useCreateLeave,
+  useListHolidays, useListEmployees,
+  getListLeavesQueryKey, getListHolidaysQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import { Check, X } from "lucide-react";
+import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
 
 export default function LeavesPage() {
   const { toast } = useToast();
@@ -53,6 +50,16 @@ export default function LeavesPage() {
     toDate: "",
     reason: "",
   });
+
+  // ── Pagination ──────────────────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset page when tab changes
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setPage(1);
+  };
 
   // Keep applyData.employeeId in sync when user loads
   useEffect(() => {
@@ -169,74 +176,72 @@ export default function LeavesPage() {
     }
   };
 
-  const renderLeavesTable = (data: any[], loading: boolean) => (
-    <Card>
-      <Table data-testid="table-leaves">
-        <TableHeader>
-          <TableRow>
-            {!isEmployee && <TableHead>Employee</TableHead>}
-            <TableHead>Type</TableHead>
-            <TableHead>From</TableHead>
-            <TableHead>To</TableHead>
-            <TableHead>Days</TableHead>
-            <TableHead>Reason</TableHead>
-            <TableHead>Status</TableHead>
-            {/* Approve/Reject column — hidden for employees */}
-            {canApprove && <TableHead>Actions</TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            <TableRow><TableCell colSpan={canApprove ? 8 : 7} className="text-center py-6">Loading…</TableCell></TableRow>
-          ) : !data || data.length === 0 ? (
-            <TableRow><TableCell colSpan={canApprove ? 8 : 7} className="text-center py-6 text-muted-foreground">No leaves found</TableCell></TableRow>
-          ) : (
-            data.map((record: any) => (
-              <TableRow key={record.id} data-testid={`row-leave-${record.id}`}>
-                {!isEmployee && (
-                  <TableCell className="font-medium">{record.employeeName || `EMP #${record.employeeId}`}</TableCell>
-                )}
-                <TableCell>{record.leaveType || record.type}</TableCell>
-                <TableCell>{format(new Date(record.fromDate), "dd MMM yyyy")}</TableCell>
-                <TableCell>{format(new Date(record.toDate), "dd MMM yyyy")}</TableCell>
-                <TableCell>{record.days}</TableCell>
-                <TableCell className="max-w-[180px] truncate" title={record.reason}>{record.reason || "—"}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={getStatusColor(record.status)}>{record.status}</Badge>
-                </TableCell>
-                {canApprove && (
+  const renderLeavesTable = (data: any[], loading: boolean) => {
+    const start = (page - 1) * pageSize;
+    const paged = data.slice(start, start + pageSize);
+    return (
+      <Card>
+        <Table data-testid="table-leaves">
+          <TableHeader>
+            <TableRow>
+              {!isEmployee && <TableHead>Employee</TableHead>}
+              <TableHead>Type</TableHead>
+              <TableHead>From</TableHead>
+              <TableHead>To</TableHead>
+              <TableHead>Days</TableHead>
+              <TableHead>Reason</TableHead>
+              <TableHead>Status</TableHead>
+              {canApprove && <TableHead>Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={canApprove ? 8 : 7} className="text-center py-6">Loading…</TableCell></TableRow>
+            ) : !data || data.length === 0 ? (
+              <TableRow><TableCell colSpan={canApprove ? 8 : 7} className="text-center py-6 text-muted-foreground">No leaves found</TableCell></TableRow>
+            ) : (
+              paged.map((record: any) => (
+                <TableRow key={record.id} data-testid={`row-leave-${record.id}`}>
+                  {!isEmployee && (
+                    <TableCell className="font-medium">{record.employeeName || `EMP #${record.employeeId}`}</TableCell>
+                  )}
+                  <TableCell>{record.leaveType || record.type}</TableCell>
+                  <TableCell>{format(new Date(record.fromDate), "dd MMM yyyy")}</TableCell>
+                  <TableCell>{format(new Date(record.toDate), "dd MMM yyyy")}</TableCell>
+                  <TableCell>{record.days}</TableCell>
+                  <TableCell className="max-w-[180px] truncate" title={record.reason}>{record.reason || "—"}</TableCell>
                   <TableCell>
-                    {record.status === "Pending" && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="icon" variant="outline"
-                          className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50"
-                          onClick={() => handleAction(record.id, "approve")}
-                          disabled={approveLeave.isPending}
-                          data-testid={`btn-approve-${record.id}`}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon" variant="outline"
-                          className="h-8 w-8 text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => handleAction(record.id, "reject")}
-                          disabled={approveLeave.isPending}
-                          data-testid={`btn-reject-${record.id}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                    <Badge variant="outline" className={getStatusColor(record.status)}>{record.status}</Badge>
                   </TableCell>
-                )}
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </Card>
-  );
+                  {canApprove && (
+                    <TableCell>
+                      {record.status === "Pending" && (
+                        <div className="flex gap-2">
+                          <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50"
+                            onClick={() => handleAction(record.id, "approve")} disabled={approveLeave.isPending}
+                            data-testid={`btn-approve-${record.id}`}><Check className="h-4 w-4" /></Button>
+                          <Button size="icon" variant="outline" className="h-8 w-8 text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => handleAction(record.id, "reject")} disabled={approveLeave.isPending}
+                            data-testid={`btn-reject-${record.id}`}><X className="h-4 w-4" /></Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        {data.length > pageSize && (
+          <PaginationBar
+            page={page} pageSize={pageSize} total={data.length}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+          />
+        )}
+      </Card>
+    );
+  };
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -308,7 +313,7 @@ export default function LeavesPage() {
         </Dialog>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList>
           <TabsTrigger value="all" data-testid="tab-all">
             {isEmployee ? "My Leaves" : "All Requests"}

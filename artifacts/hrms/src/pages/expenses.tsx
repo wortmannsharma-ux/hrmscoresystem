@@ -2,11 +2,8 @@ import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useListExpenses,
-  useCreateExpense,
-  useApproveExpense,
-  useListEmployees,
-  getListExpensesQueryKey,
+  useListExpenses, useCreateExpense, useApproveExpense,
+  useListEmployees, getListExpensesQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,8 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { IndianRupee, FileText, CheckCircle } from "lucide-react";
+import { IndianRupee, FileText, CheckCircle, Paperclip, ExternalLink } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
 
 export default function ExpensesPage() {
   const { toast } = useToast();
@@ -44,7 +42,12 @@ export default function ExpensesPage() {
     employeeId: isEmployee && user?.employeeId ? user.employeeId.toString() : "",
     category: "Food", amount: "", date: format(new Date(), "yyyy-MM-dd"),
     description: "", isAutoTravel: false, km: "", rate: "5",
+    billPhoto: "" as string,  // base64 or empty
   });
+
+  // ── Pagination ──────────────────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const queryParams = { 
     month: month, 
@@ -83,6 +86,17 @@ export default function ExpensesPage() {
     return rawExpenses as any[];
   }, [rawExpenses, isEmployee, isManager, user?.employeeId, allEmployees]);
 
+  // ── Bill photo upload ──────────────────────────────────────────────────
+  const handleBillPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setSubmitData((d) => ({ ...d, billPhoto: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
+  const pagedExpenses = usePagination(expenses, page, pageSize);
+
   const createExpense = useCreateExpense({
     mutation: {
       onSuccess: () => {
@@ -109,9 +123,7 @@ export default function ExpensesPage() {
     if (!empId) { toast({ title: "Select an employee", variant: "destructive" }); return; }
 
     let finalAmount = Number(submitData.amount);
-    if (submitData.isAutoTravel) {
-      finalAmount = Number(submitData.km) * Number(submitData.rate);
-    }
+    if (submitData.isAutoTravel) finalAmount = Number(submitData.km) * Number(submitData.rate);
 
     createExpense.mutate({
       data: {
@@ -120,6 +132,7 @@ export default function ExpensesPage() {
         amount: finalAmount,
         date: submitData.date,
         description: submitData.description,
+        billPhoto: submitData.billPhoto || null,
         isAutoTravel: submitData.isAutoTravel,
         travelKm: submitData.isAutoTravel ? Number(submitData.km) : undefined,
         travelRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined,
@@ -229,6 +242,30 @@ export default function ExpensesPage() {
                 <Label htmlFor="description">Description</Label>
                 <Input id="description" value={submitData.description} onChange={e => setSubmitData({...submitData, description: e.target.value})} />
               </div>
+
+              {/* Bill / Receipt upload */}
+              <div className="grid gap-2">
+                <Label>Bill / Receipt (optional)</Label>
+                {submitData.billPhoto ? (
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                    <Paperclip className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-xs text-muted-foreground truncate flex-1">Photo attached</span>
+                    <Button
+                      type="button" variant="ghost" size="sm" className="h-6 text-xs text-destructive"
+                      onClick={() => setSubmitData(d => ({ ...d, billPhoto: "" }))}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-2 p-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Click to upload bill/receipt</span>
+                    <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleBillPhoto} />
+                  </label>
+                )}
+                <p className="text-xs text-muted-foreground">Accepts images. Stored as attachment.</p>
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleSubmit} disabled={createExpense.isPending} data-testid="submit-expense-btn">Submit</Button>
@@ -305,29 +342,41 @@ export default function ExpensesPage() {
               <TableHead>Category</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Bill</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center">Loading...</TableCell></TableRow>
-            ) : !expenses || expenses.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center">No expenses found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-6">Loading...</TableCell></TableRow>
+            ) : pagedExpenses.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground">No expenses found</TableCell></TableRow>
             ) : (
-              expenses.map((expense: any) => (
+              pagedExpenses.map((expense: any) => (
                 <TableRow key={expense.id} data-testid={`row-expense-${expense.id}`}>
-                  <TableCell className="font-medium">{(expense as any).employeeName || `EMP #${expense.employeeId}`}</TableCell>
+                  <TableCell className="font-medium">{expense.employeeName || `EMP #${expense.employeeId}`}</TableCell>
                   <TableCell>{format(new Date(expense.date), "dd MMM yyyy")}</TableCell>
                   <TableCell>{expense.category}</TableCell>
-                  <TableCell className="max-w-[200px] truncate" title={expense.description}>{expense.description}</TableCell>
+                  <TableCell className="max-w-[150px] truncate" title={expense.description}>{expense.description || "—"}</TableCell>
                   <TableCell className="font-medium">₹{Number(expense.amount).toFixed(2)}</TableCell>
+                  <TableCell>
+                    {expense.billPhoto ? (
+                      <a href={expense.billPhoto} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary text-xs underline underline-offset-2">
+                        <ExternalLink className="h-3 w-3" /> View
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={getStatusColor(expense.status)}>{expense.status}</Badge>
                   </TableCell>
                   <TableCell>
                     {canApprove && expense.status === "Pending" && (
-                      <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => handleApprove(expense.id)} disabled={approveExpense.isPending} data-testid={`btn-approve-${expense.id}`}>
+                      <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        onClick={() => handleApprove(expense.id)} disabled={approveExpense.isPending}
+                        data-testid={`btn-approve-${expense.id}`}>
                         Approve
                       </Button>
                     )}
@@ -337,6 +386,11 @@ export default function ExpensesPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationBar
+          page={page} pageSize={pageSize} total={expenses.length}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+        />
       </Card>
     </div>
   );

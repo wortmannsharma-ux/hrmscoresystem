@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { authFetch } from "@/lib/auth-context";
 import { Link } from "wouter";
 import { useListDepartments } from "@workspace/api-client-react";
+import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
 
 const USERS_KEY = ["users"];
 
@@ -81,6 +82,23 @@ export default function UsersPage() {
     },
     enabled: canManage,
   });
+
+  // ── Search + pagination ──────────────────────────────────────────────────
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const filteredUsers = users.filter((u) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      u.name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.userId.toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q)
+    );
+  });
+  const pagedUsers = usePagination(filteredUsers, page, pageSize);
 
   const { data: departments } = useListDepartments();
 
@@ -269,8 +287,16 @@ export default function UsersPage() {
         ))}
       </div>
 
-      {/* Table */}
+      {/* Search + Table */}
       <Card>
+        <div className="p-4 border-b">
+          <Input
+            placeholder="Search by name, email, ID or role…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="max-w-sm"
+          />
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -290,14 +316,14 @@ export default function UsersPage() {
                   Loading users…
                 </TableCell>
               </TableRow>
-            ) : users.length === 0 ? (
+            ) : pagedUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No users found.
+                  {search ? "No users match your search." : "No users found."}
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((u) => {
+              pagedUsers.map((u) => {
                 const isSelf = u.id === me?.id;
                 const canAct = !isSelf && canActOn(u.role);
 
@@ -329,75 +355,38 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell>
                       {u.isActive ? (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          Active
-                        </Badge>
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Active</Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-muted text-muted-foreground">
-                          Inactive
-                        </Badge>
+                        <Badge variant="outline" className="bg-muted text-muted-foreground">Inactive</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {u.lastLoginAt
-                        ? format(new Date(u.lastLoginAt), "dd MMM yyyy, HH:mm")
-                        : "Never"}
+                      {u.lastLoginAt ? format(new Date(u.lastLoginAt), "dd MMM yyyy, HH:mm") : "Never"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         {canAct && (
                           <>
-                            {/* Reset password */}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-amber-600 border-amber-200 hover:bg-amber-50"
-                              onClick={() => openResetDialog(u)}
-                            >
-                              <KeyRound className="h-3.5 w-3.5 mr-1" />
-                              Reset
+                            <Button size="sm" variant="outline" className="text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => openResetDialog(u)}>
+                              <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset
                             </Button>
-
-                            {/* Activate / Deactivate */}
                             <Button
-                              size="sm"
-                              variant="outline"
-                              className={
-                                u.isActive
-                                  ? "text-amber-600 border-amber-200 hover:bg-amber-50"
-                                  : "text-green-600 border-green-200 hover:bg-green-50"
-                              }
-                              onClick={() =>
-                                toggleMutation.mutate({ id: u.id, isActive: !u.isActive })
-                              }
+                              size="sm" variant="outline"
+                              className={u.isActive ? "text-amber-600 border-amber-200 hover:bg-amber-50" : "text-green-600 border-green-200 hover:bg-green-50"}
+                              onClick={() => toggleMutation.mutate({ id: u.id, isActive: !u.isActive })}
                               disabled={toggleMutation.isPending}
                             >
-                              {u.isActive ? (
-                                <><UserX className="h-3.5 w-3.5 mr-1" /> Deactivate</>
-                              ) : (
-                                <><UserCheck className="h-3.5 w-3.5 mr-1" /> Activate</>
-                              )}
+                              {u.isActive ? <><UserX className="h-3.5 w-3.5 mr-1" /> Deactivate</> : <><UserCheck className="h-3.5 w-3.5 mr-1" /> Activate</>}
                             </Button>
-
-                            {/* Delete — SUPER_ADMIN only */}
                             {isSuperAdmin && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => setDeleteId(u.id)}
-                              >
+                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(u.id)}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             )}
                           </>
                         )}
-                        {isSelf && (
-                          <span className="text-xs text-muted-foreground px-2">You</span>
-                        )}
-                        {!isSelf && !canActOn(u.role) && (
-                          <span className="text-xs text-muted-foreground px-2">Protected</span>
-                        )}
+                        {isSelf && <span className="text-xs text-muted-foreground px-2">You</span>}
+                        {!isSelf && !canActOn(u.role) && <span className="text-xs text-muted-foreground px-2">Protected</span>}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -406,6 +395,13 @@ export default function UsersPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          total={filteredUsers.length}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+        />
       </Card>
 
       {/* ── Create User Dialog ── */}
