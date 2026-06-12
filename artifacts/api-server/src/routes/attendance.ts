@@ -512,38 +512,91 @@ router.post("/tracking/location", protect, async (req, res): Promise<void> => {
 });
 
 router.get("/tracking/live", protect, async (_req, res): Promise<void> => {
+  const today = new Date().toISOString().split("T")[0]!;
+
+  // First try location_tracks (real-time GPS pings)
   const recentLocations = await db.execute(sql`
     SELECT DISTINCT ON (lt.employee_id)
-      lt.employee_id as "employeeId",
-      (e.first_name || ' ' || e.last_name) as "employeeName",
-      d.name as designation,
+      lt.employee_id   AS "employeeId",
+      (e.first_name || ' ' || e.last_name) AS "employeeName",
+      d.name           AS designation,
       lt.lat,
       lt.lng,
       lt.speed,
-      lt.timestamp as "lastUpdated",
-      a.status as "attendanceStatus"
+      lt.timestamp     AS "lastUpdated",
+      'gps'            AS source
     FROM location_tracks lt
     JOIN employees e ON e.id = lt.employee_id
     LEFT JOIN designations d ON d.id = e.designation_id
-    LEFT JOIN attendance a ON a.employee_id = lt.employee_id AND a.date = CURRENT_DATE
     ORDER BY lt.employee_id, lt.timestamp DESC
   `);
 
-  const today = new Date().toISOString().split("T")[0];
+  // Also pull employees who marked attendance today with GPS coordinates
+  // These show up if no live GPS ping exists yet
+  const attendanceLocations = await db.execute(sql`
+    SELECT
+      a.employee_id   AS "employeeId",
+      (e.first_name || ' ' || e.last_name) AS "employeeName",
+      d.name           AS designation,
+      a.check_in_lat  AS lat,
+      a.check_in_lng  AS lng,
+      NULL            AS speed,
+      a.check_in_time AS "lastUpdated",
+      'attendance'    AS source,
+      a.eod_submitted AS "eodSubmitted"
+    FROM attendance a
+    JOIN employees e ON e.id = a.employee_id
+    LEFT JOIN designations d ON d.id = e.designation_id
+    WHERE a.date = ${today}
+      AND a.check_in_lat IS NOT NULL
+      AND a.check_in_lng IS NOT NULL
+  `);
+
+  // Merge: location_track entries take priority; attendance check-in fills gaps
+  const trackIds = new Set(
+    (recentLocations.rows as any[]).map((r) => Number(r.employeeId))
+  );
+
+  const attRows = (attendanceLocations.rows as any[]).filter(
+    (r) => !trackIds.has(Number(r.employeeId))
+  );
+
+  const allRows = [
+    ...(recentLocations.rows as any[]),
+    ...attRows,
+  ];
+
+  // Determine isActive: active = checked-in today AND not yet checked-out
   const todayAtt = await db
-    .select()
+    .select({
+      employeeId: attendanceTable.employeeId,
+      eodSubmitted: attendanceTable.eodSubmitted,
+      checkOutTime: attendanceTable.checkOutTime,
+    })
     .from(attendanceTable)
     .where(eq(attendanceTable.date, today));
 
+  const attMap = new Map(todayAtt.map((a) => [a.employeeId, a]));
+
   res.json(
-    (recentLocations.rows as Record<string, unknown>[]).map((r) => ({
-      ...r,
-      lastUpdated:
-        r.lastUpdated instanceof Date
-          ? (r.lastUpdated as Date).toISOString()
-          : String(r.lastUpdated),
-      isActive: !todayAtt.find((a) => a.employeeId === Number(r.employeeId))?.eodSubmitted,
-    }))
+    allRows.map((r: any) => {
+      const att = attMap.get(Number(r.employeeId));
+      return {
+        employeeId: Number(r.employeeId),
+        employeeName: r.employeeName ?? "",
+        designation: r.designation ?? null,
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        speed: r.speed != null ? Number(r.speed) : null,
+        lastUpdated:
+          r.lastUpdated instanceof Date
+            ? r.lastUpdated.toISOString()
+            : String(r.lastUpdated),
+        // Active = checked in today, has GPS, not yet submitted EOD
+        isActive: att != null && !att.eodSubmitted && att.checkOutTime == null,
+        source: r.source ?? "unknown",
+      };
+    })
   );
 });
 
