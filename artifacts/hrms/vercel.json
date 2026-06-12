@@ -1,8 +1,8 @@
 {
-  "buildCommand": "cd ../.. && pnpm install && pnpm --filter @workspace/db build && pnpm --filter @workspace/api-zod build && pnpm --filter @workspace/api-client-react build && pnpm --filter @workspace/hrms build",
-  "outputDirectory": "artifacts/hrms/dist",
-  "installCommand": "pnpm install",
-  "framework": null,
+  "framework": "vite",
+  "outputDirectory": "dist",
+  "buildCommand": "cd ../.. && npx --yes pnpm@11.5.2 install --no-frozen-lockfile --ignore-scripts && cd artifacts/hrms && npx vite build",
+  "installCommand": "echo 'install handled in buildCommand'",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
