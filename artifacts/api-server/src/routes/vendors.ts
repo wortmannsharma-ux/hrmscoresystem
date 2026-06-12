@@ -12,6 +12,7 @@ import {
   GetVisitParams,
   GetVisitSummaryQueryParams,
 } from "@workspace/api-zod";
+import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -26,7 +27,7 @@ function fmtVisit(v: typeof visitsTable.$inferSelect & { vendorName?: string | n
 }
 
 // ── Vendors ───────────────────────────────────────────
-router.get("/vendors", async (req, res): Promise<void> => {
+router.get("/vendors", protect, async (req, res): Promise<void> => {
   const query = ListVendorsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -53,7 +54,7 @@ router.get("/vendors", async (req, res): Promise<void> => {
   })));
 });
 
-router.post("/vendors", async (req, res): Promise<void> => {
+router.post("/vendors", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = CreateVendorBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -72,7 +73,7 @@ router.post("/vendors", async (req, res): Promise<void> => {
   res.status(201).json({ ...vendor, visitCount: 0, lastVisit: null, createdAt: vendor.createdAt.toISOString() });
 });
 
-router.get("/vendors/:id", async (req, res): Promise<void> => {
+router.get("/vendors/:id", protect, async (req, res): Promise<void> => {
   const params = GetVendorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -86,7 +87,7 @@ router.get("/vendors/:id", async (req, res): Promise<void> => {
   res.json({ ...vendor, visitCount: 0, lastVisit: null, createdAt: vendor.createdAt.toISOString() });
 });
 
-router.patch("/vendors/:id", async (req, res): Promise<void> => {
+router.patch("/vendors/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const params = UpdateVendorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -110,7 +111,7 @@ router.patch("/vendors/:id", async (req, res): Promise<void> => {
 });
 
 // ── Visits ────────────────────────────────────────────
-router.get("/visits", async (req, res): Promise<void> => {
+router.get("/visits", protect, async (req, res): Promise<void> => {
   const query = ListVisitsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -153,7 +154,7 @@ router.get("/visits", async (req, res): Promise<void> => {
   res.json(rows.map(fmtVisit));
 });
 
-router.post("/visits", async (req, res): Promise<void> => {
+router.post("/visits", protect, async (req, res): Promise<void> => {
   const parsed = CreateVisitBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -202,7 +203,7 @@ router.post("/visits", async (req, res): Promise<void> => {
   res.status(201).json(fmtVisit({ ...visit, vendorName: null, employeeName: null }));
 });
 
-router.get("/visits/summary", async (req, res): Promise<void> => {
+router.get("/visits/summary", protect, async (req, res): Promise<void> => {
   const query = GetVisitSummaryQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -240,7 +241,7 @@ router.get("/visits/summary", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/visits/:id", async (req, res): Promise<void> => {
+router.get("/visits/:id", protect, async (req, res): Promise<void> => {
   const params = GetVisitParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

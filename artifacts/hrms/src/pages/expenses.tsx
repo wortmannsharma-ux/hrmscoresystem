@@ -2,11 +2,8 @@ import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useListExpenses,
-  useCreateExpense,
-  useApproveExpense,
-  useListEmployees,
-  getListExpensesQueryKey,
+  useListExpenses, useCreateExpense, useApproveExpense,
+  useListEmployees, getListExpensesQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,21 +15,39 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Check, X, IndianRupee, FileText, CheckCircle } from "lucide-react";
+import { IndianRupee, FileText, CheckCircle, Paperclip, ExternalLink } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
 
 export default function ExpensesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+  const { user } = useAuth();
+  const role = user?.role ?? "";
+
+  const isEmployee = role === "EMPLOYEE" || role === "INTERN";
+  // Expense approval: only MANAGER and TEAM_LEADER approve expenses
+  const canApprove = ["MANAGER", "TEAM_LEADER"].includes(role);
+  const isManager = role === "MANAGER" || role === "TEAM_LEADER";
+
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [employeeId, setEmployeeId] = useState<string>("all");
+  // Employees locked to their own ID
+  const [employeeId, setEmployeeId] = useState<string>(
+    isEmployee && user?.employeeId ? user.employeeId.toString() : "all"
+  );
   const [status, setStatus] = useState<string>("all");
 
   const [isSubmitDialog, setIsSubmitDialog] = useState(false);
-  const [submitData, setSubmitData] = useState({ 
-    employeeId: "", category: "Food", amount: "", date: format(new Date(), "yyyy-MM-dd"), 
-    description: "", isAutoTravel: false, km: "", rate: "5" 
+  const [submitData, setSubmitData] = useState({
+    employeeId: isEmployee && user?.employeeId ? user.employeeId.toString() : "",
+    category: "Food", amount: "", date: format(new Date(), "yyyy-MM-dd"),
+    description: "", isAutoTravel: false, km: "", rate: "5",
+    billPhoto: "" as string,  // base64 or empty
   });
+
+  // ── Pagination ──────────────────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const queryParams = { 
     month: month, 
@@ -40,11 +55,47 @@ export default function ExpensesPage() {
     status: status !== "all" ? status : undefined
   };
 
-  const { data: expenses, isLoading } = useListExpenses(queryParams, {
+  const { data: rawExpenses, isLoading } = useListExpenses(queryParams, {
     query: { queryKey: getListExpensesQueryKey(queryParams) }
   });
 
-  const { data: employees } = useListEmployees();
+  const { data: allEmployeesRaw } = useListEmployees();
+
+  // Managers see only their team's employees; employees see no dropdown
+  const allEmployees = (allEmployeesRaw || []) as any[];
+  const employees = isEmployee
+    ? []
+    : isManager && user?.employeeId
+    ? allEmployees.filter((e: any) => e.managerId === user.employeeId)
+    : allEmployees;
+
+  // Filter expenses by role
+  const expenses = useMemo(() => {
+    if (!rawExpenses) return [];
+    // Employees see only their own
+    if (isEmployee && user?.employeeId) {
+      return (rawExpenses as any[]).filter((exp: any) => exp.employeeId === user.employeeId);
+    }
+    // Managers see only their team
+    if (isManager && user?.employeeId) {
+      const teamIds = new Set(
+        allEmployees.filter((e: any) => e.managerId === user.employeeId).map((e: any) => e.id)
+      );
+      return (rawExpenses as any[]).filter((exp: any) => teamIds.has(exp.employeeId));
+    }
+    return rawExpenses as any[];
+  }, [rawExpenses, isEmployee, isManager, user?.employeeId, allEmployees]);
+
+  // ── Bill photo upload ──────────────────────────────────────────────────
+  const handleBillPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setSubmitData((d) => ({ ...d, billPhoto: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
+  const pagedExpenses = usePagination(expenses, page, pageSize);
 
   const createExpense = useCreateExpense({
     mutation: {
@@ -68,22 +119,29 @@ export default function ExpensesPage() {
   });
 
   const handleSubmit = () => {
+    const empId = isEmployee && user?.employeeId ? user.employeeId : Number(submitData.employeeId);
+    if (!empId) { toast({ title: "Select an employee", variant: "destructive" }); return; }
+
     let finalAmount = Number(submitData.amount);
-    if (submitData.isAutoTravel) {
-      finalAmount = Number(submitData.km) * Number(submitData.rate);
-    }
-    
+    if (submitData.isAutoTravel) finalAmount = Number(submitData.km) * Number(submitData.rate);
+
     createExpense.mutate({
       data: {
-        employeeId: Number(submitData.employeeId),
+        employeeId: empId,
         category: submitData.category as any,
         amount: finalAmount,
         date: submitData.date,
         description: submitData.description,
+        billPhoto: submitData.billPhoto || null,
         isAutoTravel: submitData.isAutoTravel,
         travelKm: submitData.isAutoTravel ? Number(submitData.km) : undefined,
+<<<<<<< HEAD
         travelRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined
       }
+=======
+        travelRate: submitData.isAutoTravel ? Number(submitData.rate) : undefined,
+      },
+>>>>>>> aalekh
     });
   };
 
@@ -102,7 +160,7 @@ export default function ExpensesPage() {
   };
 
   const stats = useMemo(() => {
-    if (!expenses) return { pendingAmount: 0, claims: 0, approved: 0 };
+    if (!expenses || expenses.length === 0) return { pendingAmount: 0, claims: 0, approved: 0 };
     return expenses.reduce((acc: any, exp: any) => {
       acc.claims += 1;
       if (exp.status === "Pending") acc.pendingAmount += Number(exp.amount) || 0;
@@ -124,17 +182,20 @@ export default function ExpensesPage() {
               <DialogTitle>Submit New Expense</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="emp">Employee</Label>
-                <Select value={submitData.employeeId} onValueChange={v => setSubmitData({...submitData, employeeId: v})}>
-                  <SelectTrigger id="emp"><SelectValue placeholder="Select employee" /></SelectTrigger>
-                  <SelectContent>
-                    {employees?.map(emp => (
-                      <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Employee selector — hidden for regular employees (auto-filled) */}
+              {!isEmployee && (
+                <div className="grid gap-2">
+                  <Label htmlFor="emp">Employee</Label>
+                  <Select value={submitData.employeeId} onValueChange={v => setSubmitData({...submitData, employeeId: v})}>
+                    <SelectTrigger id="emp"><SelectValue placeholder="Select employee" /></SelectTrigger>
+                    <SelectContent>
+                      {employees.map((emp: any) => (
+                        <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="date">Date</Label>
@@ -186,6 +247,30 @@ export default function ExpensesPage() {
                 <Label htmlFor="description">Description</Label>
                 <Input id="description" value={submitData.description} onChange={e => setSubmitData({...submitData, description: e.target.value})} />
               </div>
+
+              {/* Bill / Receipt upload */}
+              <div className="grid gap-2">
+                <Label>Bill / Receipt (optional)</Label>
+                {submitData.billPhoto ? (
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                    <Paperclip className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-xs text-muted-foreground truncate flex-1">Photo attached</span>
+                    <Button
+                      type="button" variant="ghost" size="sm" className="h-6 text-xs text-destructive"
+                      onClick={() => setSubmitData(d => ({ ...d, billPhoto: "" }))}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-2 p-2 border border-dashed rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Click to upload bill/receipt</span>
+                    <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleBillPhoto} />
+                  </label>
+                )}
+                <p className="text-xs text-muted-foreground">Accepts images. Stored as attachment.</p>
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleSubmit} disabled={createExpense.isPending} data-testid="submit-expense-btn">Submit</Button>
@@ -226,17 +311,19 @@ export default function ExpensesPage() {
 
       <div className="flex flex-wrap items-center gap-4 py-4">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[200px]" />
-        <Select value={employeeId} onValueChange={setEmployeeId}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All Employees" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Employees</SelectItem>
-            {employees?.map(emp => (
-              <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!isEmployee && (
+          <Select value={employeeId} onValueChange={setEmployeeId}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All Employees" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Employees</SelectItem>
+              {employees.map((emp: any) => (
+                <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Status" />
@@ -260,29 +347,41 @@ export default function ExpensesPage() {
               <TableHead>Category</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Bill</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center">Loading...</TableCell></TableRow>
-            ) : !expenses || expenses.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center">No expenses found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-6">Loading...</TableCell></TableRow>
+            ) : pagedExpenses.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground">No expenses found</TableCell></TableRow>
             ) : (
-              expenses.map((expense: any) => (
+              pagedExpenses.map((expense: any) => (
                 <TableRow key={expense.id} data-testid={`row-expense-${expense.id}`}>
-                  <TableCell className="font-medium">{(expense as any).employeeName || `EMP #${expense.employeeId}`}</TableCell>
+                  <TableCell className="font-medium">{expense.employeeName || `EMP #${expense.employeeId}`}</TableCell>
                   <TableCell>{format(new Date(expense.date), "dd MMM yyyy")}</TableCell>
                   <TableCell>{expense.category}</TableCell>
-                  <TableCell className="max-w-[200px] truncate" title={expense.description}>{expense.description}</TableCell>
+                  <TableCell className="max-w-[150px] truncate" title={expense.description}>{expense.description || "—"}</TableCell>
                   <TableCell className="font-medium">₹{Number(expense.amount).toFixed(2)}</TableCell>
+                  <TableCell>
+                    {expense.billPhoto ? (
+                      <a href={expense.billPhoto} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary text-xs underline underline-offset-2">
+                        <ExternalLink className="h-3 w-3" /> View
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={getStatusColor(expense.status)}>{expense.status}</Badge>
                   </TableCell>
                   <TableCell>
-                    {expense.status === "Pending" && (
-                      <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => handleApprove(expense.id)} disabled={approveExpense.isPending} data-testid={`btn-approve-${expense.id}`}>
+                    {canApprove && expense.status === "Pending" && (
+                      <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        onClick={() => handleApprove(expense.id)} disabled={approveExpense.isPending}
+                        data-testid={`btn-approve-${expense.id}`}>
                         Approve
                       </Button>
                     )}
@@ -292,6 +391,11 @@ export default function ExpensesPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationBar
+          page={page} pageSize={pageSize} total={expenses.length}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+        />
       </Card>
     </div>
   );

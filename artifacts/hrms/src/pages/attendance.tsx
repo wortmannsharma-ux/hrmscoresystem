@@ -2,20 +2,12 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useGetTodayAttendance,
-  useListAttendance,
-  useGetAttendanceSummary,
-  useDayStart,
-  useDayEnd,
-  useListEmployees,
-  useListOfficeLocations,
-  useCreateOfficeLocation,
-  useUpdateOfficeLocation,
-  useDeleteOfficeLocation,
-  getListAttendanceQueryKey,
-  getGetAttendanceSummaryQueryKey,
-  getGetTodayAttendanceQueryKey,
-  getListOfficeLocationsQueryKey,
+  useGetTodayAttendance, useListAttendance, useGetAttendanceSummary,
+  useDayStart, useDayEnd, useListEmployees, useListOfficeLocations,
+  useCreateOfficeLocation, useUpdateOfficeLocation, useDeleteOfficeLocation,
+  useApproveAttendance,
+  getListAttendanceQueryKey, getGetAttendanceSummaryQueryKey,
+  getGetTodayAttendanceQueryKey, getListOfficeLocationsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,8 +20,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Users, UserCheck, UserX, Clock, MapPin, Plus, Pencil, Trash2, Settings, Shield } from "lucide-react";
+import { Users, UserCheck, UserX, Clock, MapPin, Plus, Pencil, Trash2, Settings, Shield, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { SmartAttendanceModal } from "@/components/smart-attendance-modal";
+import { useAuth, authFetch } from "@/lib/auth-context";
+import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
 
 const DEFAULT_SETTINGS = {
   presentBeforeMins: 570,
@@ -53,8 +47,19 @@ function timeInputToMins(t: string): number {
 export default function AttendancePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const role = user?.role ?? "";
+  const isEmployee = role === "EMPLOYEE" || role === "INTERN";
+  const isManager = role === "MANAGER" || role === "TEAM_LEADER";
+  // Attendance approval: ADMIN and HR only (not manager)
+  const canApprove = ["SUPER_ADMIN", "ADMIN", "HR"].includes(role);
+  const canSeeSettings = ["SUPER_ADMIN", "ADMIN", "HR"].includes(role);
+
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [employeeFilter, setEmployeeFilter] = useState<string>("all");
+  // Employees always see only their own records — lock the filter to their employee ID
+  const [employeeFilter, setEmployeeFilter] = useState<string>(
+    isEmployee && user?.employeeId ? user.employeeId.toString() : "all"
+  );
 
   const [isSmartModal, setIsSmartModal] = useState(false);
   const [isEndDialog, setIsEndDialog] = useState(false);
@@ -79,7 +84,7 @@ export default function AttendancePage() {
   const [locationForm, setLocationForm] = useState({ name: "", lat: "", lng: "", radius: "50", requireApproval: false, isActive: true });
 
   useEffect(() => {
-    fetch("/api/attendance/settings")
+    authFetch("/api/attendance/settings")
       .then((r) => r.json())
       .then((data) => {
         setSettings(data);
@@ -92,7 +97,7 @@ export default function AttendancePage() {
   const saveSettings = async () => {
     setSavingSettings(true);
     try {
-      const res = await fetch("/api/attendance/settings", {
+      const res = await authFetch("/api/attendance/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(localSettings),
@@ -108,6 +113,25 @@ export default function AttendancePage() {
     }
   };
 
+  // ── Pagination ──────────────────────────────────────────────────────────
+  const [attPage, setAttPage] = useState(1);
+  const [attPageSize, setAttPageSize] = useState(10);
+
+  // ── Auto-refresh every 2 minutes ────────────────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: getListAttendanceQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetTodayAttendanceQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetAttendanceSummaryQueryKey() });
+    }, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [queryClient]);
+
+  const manualRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: getListAttendanceQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayAttendanceQueryKey() });
+  };
+
   const { data: todayStats } = useGetTodayAttendance();
   const { data: summary } = useGetAttendanceSummary(
     { month, employeeId: employeeFilter !== "all" ? Number(employeeFilter) : undefined },
@@ -119,6 +143,30 @@ export default function AttendancePage() {
   );
   const { data: employees } = useListEmployees();
   const { data: officeLocations } = useListOfficeLocations();
+
+  // Manager sees only their team employees
+  const allEmployees = (employees || []) as any[];
+  const employeesList = isManager && user?.employeeId
+    ? allEmployees.filter((e: any) => e.managerId === user.employeeId)
+    : allEmployees;
+
+  // ── Filtered + paginated attendance (must be after attendanceList + employeesList) ──
+  const filteredAttendance = ((attendanceList || []) as any[]).filter((record: any) => {
+    if (!isManager || !user?.employeeId) return true;
+    return employeesList.some((e: any) => e.id === record.employeeId);
+  });
+  const pagedAttendance = usePagination(filteredAttendance, attPage, attPageSize);
+
+  // Approve attendance mutation (ADMIN / MANAGER only)
+  const approveMutation = useApproveAttendance({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Attendance updated" });
+        queryClient.invalidateQueries({ queryKey: getListAttendanceQueryKey() });
+      },
+      onError: () => toast({ title: "Failed to update attendance", variant: "destructive" }),
+    },
+  });
 
   const dayStartMutation = useDayStart({
     mutation: {
@@ -188,10 +236,12 @@ export default function AttendancePage() {
   };
 
   const handleEndDay = () => {
-    if (!endData.employeeId) return;
+    // For employees, use their own ID directly
+    const empId = isEmployee && user?.employeeId ? user.employeeId : Number(endData.employeeId);
+    if (!empId) return;
     dayEndMutation.mutate({
       data: {
-        employeeId: Number(endData.employeeId),
+        employeeId: empId,
         eodVisits: Number(endData.visits) || 0,
         eodKm: Number(endData.km) || 0,
         eodLeads: Number(endData.leads) || 0,
@@ -248,8 +298,6 @@ export default function AttendancePage() {
     }
   };
 
-  const employeesList = (employees || []) as any[];
-
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -267,53 +315,57 @@ export default function AttendancePage() {
       <Tabs defaultValue="records">
         <TabsList>
           <TabsTrigger value="records">Records</TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-3.5 w-3.5 mr-1.5" /> Settings
-          </TabsTrigger>
+          {canSeeSettings && (
+            <TabsTrigger value="settings">
+              <Settings className="h-3.5 w-3.5 mr-1.5" /> Settings
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="records" className="space-y-4 mt-4">
-          {/* Today's stats */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Present Today</CardTitle>
-                <UserCheck className="h-4 w-4 text-success" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-success">{todayStats?.presentCount || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Absent Today</CardTitle>
-                <UserX className="h-4 w-4 text-destructive" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{todayStats?.absentCount || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">On Leave</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{todayStats?.onLeaveCount || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Late In</CardTitle>
-                <Clock className="h-4 w-4 text-warning" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{todayStats?.lateCount || 0}</div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Today's stats — only for managers/admins, not for individual employees */}
+          {!isEmployee && (
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+                  <UserCheck className="h-4 w-4 text-success" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-success">{todayStats?.presentCount || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Absent Today</CardTitle>
+                  <UserX className="h-4 w-4 text-destructive" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{todayStats?.absentCount || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">On Leave</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{todayStats?.onLeaveCount || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Late In</CardTitle>
+                  <Clock className="h-4 w-4 text-warning" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{todayStats?.lateCount || 0}</div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-          {/* Filters */}
+          {/* Filters — employees see only month picker, no employee selector */}
           <div className="flex items-center gap-4">
             <Input
               type="month"
@@ -322,19 +374,21 @@ export default function AttendancePage() {
               className="w-[200px]"
               data-testid="filter-month"
             />
-            <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-              <SelectTrigger className="w-[200px]" data-testid="filter-employee">
-                <SelectValue placeholder="All Employees" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Employees</SelectItem>
-                {employeesList.map((emp: any) => (
-                  <SelectItem key={emp.id} value={emp.id.toString()}>
-                    {emp.firstName} {emp.lastName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isEmployee && (
+              <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
+                <SelectTrigger className="w-[200px]" data-testid="filter-employee">
+                  <SelectValue placeholder="All Employees" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Employees</SelectItem>
+                  {employeesList.map((emp: any) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Monthly summary bar */}
@@ -375,6 +429,14 @@ export default function AttendancePage() {
 
           {/* Attendance table */}
           <Card>
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+              <span className="text-sm text-muted-foreground">
+                Auto-refreshes every 2 min
+              </span>
+              <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={manualRefresh}>
+                <RefreshCw className="h-3 w-3" /> Refresh
+              </Button>
+            </div>
             <Table data-testid="table-attendance">
               <TableHeader>
                 <TableRow>
@@ -388,48 +450,33 @@ export default function AttendancePage() {
                   <TableHead>Selfie</TableHead>
                   <TableHead>EOD</TableHead>
                   <TableHead>Approval</TableHead>
+                  {canApprove && <TableHead className="text-right">Action</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center">Loading...</TableCell>
+                    <TableCell colSpan={canApprove ? 11 : 10} className="text-center py-6">Loading...</TableCell>
                   </TableRow>
-                ) : !attendanceList?.length ? (
+                ) : pagedAttendance.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={canApprove ? 11 : 10} className="text-center text-muted-foreground py-8">
                       No records found for {month}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  (attendanceList as any[]).map((record: any) => (
+                  pagedAttendance.map((record: any) => (
                     <TableRow key={record.id} data-testid={`row-attendance-${record.id}`}>
-                      <TableCell className="font-medium">
-                        {record.employeeName || `EMP #${record.employeeId}`}
-                      </TableCell>
+                      <TableCell className="font-medium">{record.employeeName || `EMP #${record.employeeId}`}</TableCell>
                       <TableCell>{format(new Date(record.date), "dd MMM yyyy")}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getStatusColor(record.status)}>
-                          {record.status}
-                        </Badge>
+                        <Badge variant="outline" className={getStatusColor(record.status)}>{record.status}</Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {record.checkInTime ? format(new Date(record.checkInTime), "HH:mm") : "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {record.checkOutTime ? format(new Date(record.checkOutTime), "HH:mm") : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {record.workingHours != null ? `${Number(record.workingHours).toFixed(1)}h` : "—"}
-                      </TableCell>
+                      <TableCell className="font-mono text-sm">{record.checkInTime ? format(new Date(record.checkInTime), "HH:mm") : "—"}</TableCell>
+                      <TableCell className="font-mono text-sm">{record.checkOutTime ? format(new Date(record.checkOutTime), "HH:mm") : "—"}</TableCell>
+                      <TableCell>{record.workingHours != null ? `${Number(record.workingHours).toFixed(1)}h` : "—"}</TableCell>
                       <TableCell>{record.eodKm != null ? `${record.eodKm} km` : "—"}</TableCell>
-                      <TableCell>
-                        {record.checkInSelfie ? (
-                          <span className="text-xs text-success">✓</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
+                      <TableCell>{record.checkInSelfie ? <span className="text-xs text-success">✓</span> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={record.eodSubmitted ? "bg-green-50 text-green-700" : "bg-muted text-muted-foreground"}>
                           {record.eodSubmitted ? "Done" : "Pending"}
@@ -446,11 +493,36 @@ export default function AttendancePage() {
                           </Badge>
                         ) : "—"}
                       </TableCell>
+                      {canApprove && (
+                        <TableCell className="text-right">
+                          {record.approvalStatus === "Pending" && (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="icon" variant="outline" className="h-7 w-7 text-green-600 border-green-200 hover:bg-green-50"
+                                disabled={approveMutation.isPending}
+                                onClick={() => approveMutation.mutate({ id: record.id, data: { action: "Approved", approvedBy: user?.employeeId ?? undefined } })}
+                                title="Approve">
+                                <CheckCircle className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="icon" variant="outline" className="h-7 w-7 text-red-600 border-red-200 hover:bg-red-50"
+                                disabled={approveMutation.isPending}
+                                onClick={() => approveMutation.mutate({ id: record.id, data: { action: "Rejected" } })}
+                                title="Reject">
+                                <XCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
+            <PaginationBar
+              page={attPage} pageSize={attPageSize} total={filteredAttendance.length}
+              onPageChange={setAttPage}
+              onPageSizeChange={(s) => { setAttPageSize(s); setAttPage(1); }}
+            />
           </Card>
         </TabsContent>
 
@@ -691,12 +763,16 @@ export default function AttendancePage() {
         onOpenChange={setIsSmartModal}
         onSubmit={handleSmartDayStart}
         isSubmitting={dayStartMutation.isPending}
-        employees={employeesList.map((e: any) => ({
-          id: e.id,
-          firstName: e.firstName,
-          lastName: e.lastName,
-          role: e.role,
-        }))}
+        employees={
+          isEmployee && user?.employeeId
+            // Employee only sees themselves
+            ? employeesList.filter((e: any) => e.id === user.employeeId).map((e: any) => ({
+                id: e.id, firstName: e.firstName, lastName: e.lastName, role: e.role,
+              }))
+            : employeesList.map((e: any) => ({
+                id: e.id, firstName: e.firstName, lastName: e.lastName, role: e.role,
+              }))
+        }
         officeLocations={(officeLocations || []) as any[]}
         settings={settings}
       />
@@ -708,21 +784,24 @@ export default function AttendancePage() {
             <DialogTitle>End of Day Report</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Employee</Label>
-              <Select value={endData.employeeId} onValueChange={(v) => setEndData({ ...endData, employeeId: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employeesList.map((emp: any) => (
-                    <SelectItem key={emp.id} value={emp.id.toString()}>
-                      {emp.firstName} {emp.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Employee selector — hidden for regular employees (auto-filled) */}
+            {!isEmployee && (
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <Select value={endData.employeeId} onValueChange={(v) => setEndData({ ...endData, employeeId: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employeesList.map((emp: any) => (
+                      <SelectItem key={emp.id} value={emp.id.toString()}>
+                        {emp.firstName} {emp.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Visits</Label>
@@ -752,7 +831,11 @@ export default function AttendancePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEndDialog(false)}>Cancel</Button>
-            <Button onClick={handleEndDay} disabled={dayEndMutation.isPending || !endData.employeeId} data-testid="submit-day-end">
+            <Button
+              onClick={handleEndDay}
+              disabled={dayEndMutation.isPending || (!isEmployee && !endData.employeeId)}
+              data-testid="submit-day-end"
+            >
               {dayEndMutation.isPending ? "Submitting..." : "Submit EOD"}
             </Button>
           </DialogFooter>

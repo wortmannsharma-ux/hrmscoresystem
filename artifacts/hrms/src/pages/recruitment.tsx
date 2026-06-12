@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ShieldOff } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useListJobs, useListApplicants, useCreateJob, useCreateApplicant } from "@workspace/api-client-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useAuth } from "@/lib/auth-context";
 
 export default function RecruitmentPage() {
+  const { user } = useAuth();
   const [jobStatus, setJobStatus] = useState<string>("OPEN");
+
+  // Hard guard — only SUPER_ADMIN, ADMIN, HR can access recruitment
+  if (!["SUPER_ADMIN", "ADMIN", "HR"].includes(user?.role ?? "")) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-3 text-muted-foreground">
+        <ShieldOff className="h-10 w-10 opacity-40" />
+        <p className="text-lg font-medium">Access Denied</p>
+        <p className="text-sm">You don't have permission to view recruitment.</p>
+      </div>
+    );
+  }
+
   const { data: jobs } = useListJobs({ status: jobStatus as any });
   const { data: applicants } = useListApplicants();
 

@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql } from "drizzle-orm";
 import { db, employeesTable, attendanceTable, leavesTable, expensesTable, jobsTable, applicantsTable, notificationsTable } from "@workspace/db";
+import { protect } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
-router.get("/dashboard/hr-summary", async (_req, res): Promise<void> => {
+router.get("/dashboard/hr-summary", protect, async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const month = today.slice(0, 7);
   const currentYear = new Date().getFullYear();
@@ -63,7 +64,7 @@ router.get("/dashboard/hr-summary", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/dashboard/manager-summary", async (_req, res): Promise<void> => {
+router.get("/dashboard/manager-summary", protect, async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const todayAtt = await db.select().from(attendanceTable).where(eq(attendanceTable.date, today));
   const [teamSize] = await db.select({ count: sql<number>`count(*)::int` }).from(employeesTable).where(eq(employeesTable.status, "active"));
@@ -90,7 +91,7 @@ router.get("/dashboard/manager-summary", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/dashboard/pending-approvals", async (_req, res): Promise<void> => {
+router.get("/dashboard/pending-approvals", protect, async (_req, res): Promise<void> => {
   const [leaves] = await db.select({ count: sql<number>`count(*)::int` }).from(leavesTable).where(eq(leavesTable.status, "Pending"));
   const [expenses] = await db.select({ count: sql<number>`count(*)::int` }).from(expensesTable).where(eq(expensesTable.status, "Pending"));
   const [attendance] = await db.select({ count: sql<number>`count(*)::int` }).from(attendanceTable).where(eq(attendanceTable.approvalStatus, "Pending"));
@@ -111,7 +112,7 @@ router.get("/dashboard/pending-approvals", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/dashboard/recent-activity", async (_req, res): Promise<void> => {
+router.get("/dashboard/recent-activity", protect, async (_req, res): Promise<void> => {
   // Combine recent leaves, expenses, visits into activity feed
   const recentLeaves = await db.select({
     id: leavesTable.id,
@@ -162,7 +163,7 @@ router.get("/dashboard/recent-activity", async (_req, res): Promise<void> => {
 });
 
 // ── Notifications ──────────────────────────────────────
-router.get("/notifications", async (req, res): Promise<void> => {
+router.get("/notifications", protect, async (req, res): Promise<void> => {
   const employeeId = req.query.employeeId ? parseInt(req.query.employeeId as string, 10) : null;
   const unreadOnly = req.query.unreadOnly === "true";
 
@@ -183,7 +184,7 @@ router.get("/notifications", async (req, res): Promise<void> => {
   })));
 });
 
-router.patch("/notifications/:id/read", async (req, res): Promise<void> => {
+router.patch("/notifications/:id/read", protect, async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });

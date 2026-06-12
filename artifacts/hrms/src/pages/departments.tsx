@@ -154,7 +154,7 @@ export default function DepartmentsPage() {
                     </div>
                     <div className="grid gap-2">
                       <Label>Department</Label>
-                      <Select value={desigData.departmentId} onValueChange={v => setDesigData({ ...desigData, departmentId: v })}>
+                      <Select value={desigData.departmentId} onValueChange={v => setDesigData({ ...desigData, departmentId: v ?? "" })}>
                         <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                         <SelectContent>
                           {departments?.map((d: any) => (

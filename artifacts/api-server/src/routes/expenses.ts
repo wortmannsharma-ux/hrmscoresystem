@@ -8,6 +8,7 @@ import {
   ApproveExpenseParams,
   ApproveExpenseBody,
 } from "@workspace/api-zod";
+import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -15,7 +16,7 @@ function fmtExpense(e: typeof expensesTable.$inferSelect & { employeeName?: stri
   return { ...e, employeeName: e.employeeName ?? null, createdAt: e.createdAt.toISOString() };
 }
 
-router.get("/expenses", async (req, res): Promise<void> => {
+router.get("/expenses", protect, async (req, res): Promise<void> => {
   const query = ListExpensesQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -56,7 +57,7 @@ router.get("/expenses", async (req, res): Promise<void> => {
   res.json(rows.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })));
 });
 
-router.post("/expenses", async (req, res): Promise<void> => {
+router.post("/expenses", protect, async (req, res): Promise<void> => {
   const parsed = CreateExpenseBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -84,7 +85,7 @@ router.post("/expenses", async (req, res): Promise<void> => {
   res.status(201).json(fmtExpense({ ...expense, employeeName: null }));
 });
 
-router.get("/expenses/:id", async (req, res): Promise<void> => {
+router.get("/expenses/:id", protect, async (req, res): Promise<void> => {
   const params = GetExpenseParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -98,7 +99,7 @@ router.get("/expenses/:id", async (req, res): Promise<void> => {
   res.json(fmtExpense({ ...expense, employeeName: null }));
 });
 
-router.patch("/expenses/:id/approve", async (req, res): Promise<void> => {
+router.patch("/expenses/:id/approve", protect, authorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER"), async (req, res): Promise<void> => {
   const params = ApproveExpenseParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

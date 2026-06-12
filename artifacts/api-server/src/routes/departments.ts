@@ -11,11 +11,12 @@ import {
   UpdateDesignationBody,
   DeleteDesignationParams,
 } from "@workspace/api-zod";
+import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
 // ── Departments ──────────────────────────────────────
-router.get("/departments", async (_req, res): Promise<void> => {
+router.get("/departments", protect, async (_req, res): Promise<void> => {
   const depts = await db.select().from(departmentsTable).orderBy(departmentsTable.name);
   const counts = await db
     .select({ departmentId: employeesTable.departmentId, count: sql<number>`count(*)::int` })
@@ -34,7 +35,7 @@ router.get("/departments", async (_req, res): Promise<void> => {
   );
 });
 
-router.post("/departments", async (req, res): Promise<void> => {
+router.post("/departments", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = CreateDepartmentBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -44,7 +45,7 @@ router.post("/departments", async (req, res): Promise<void> => {
   res.status(201).json({ ...dept, headName: null, employeeCount: 0, createdAt: dept.createdAt.toISOString() });
 });
 
-router.patch("/departments/:id", async (req, res): Promise<void> => {
+router.patch("/departments/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const params = UpdateDepartmentParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -63,7 +64,7 @@ router.patch("/departments/:id", async (req, res): Promise<void> => {
   res.json({ ...dept, headName: null, employeeCount: 0, createdAt: dept.createdAt.toISOString() });
 });
 
-router.delete("/departments/:id", async (req, res): Promise<void> => {
+router.delete("/departments/:id", protect, authorize("SUPER_ADMIN", "ADMIN"), async (req, res): Promise<void> => {
   const params = DeleteDepartmentParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -78,7 +79,7 @@ router.delete("/departments/:id", async (req, res): Promise<void> => {
 });
 
 // ── Designations ──────────────────────────────────────
-router.get("/designations", async (_req, res): Promise<void> => {
+router.get("/designations", protect, async (_req, res): Promise<void> => {
   const desigs = await db
     .select({
       id: designationsTable.id,
@@ -94,7 +95,7 @@ router.get("/designations", async (_req, res): Promise<void> => {
   res.json(desigs.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() })));
 });
 
-router.post("/designations", async (req, res): Promise<void> => {
+router.post("/designations", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = CreateDesignationBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -104,7 +105,7 @@ router.post("/designations", async (req, res): Promise<void> => {
   res.status(201).json({ ...desig, departmentName: null, createdAt: desig.createdAt.toISOString() });
 });
 
-router.patch("/designations/:id", async (req, res): Promise<void> => {
+router.patch("/designations/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const params = UpdateDesignationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -123,7 +124,7 @@ router.patch("/designations/:id", async (req, res): Promise<void> => {
   res.json({ ...desig, departmentName: null, createdAt: desig.createdAt.toISOString() });
 });
 
-router.delete("/designations/:id", async (req, res): Promise<void> => {
+router.delete("/designations/:id", protect, authorize("SUPER_ADMIN", "ADMIN"), async (req, res): Promise<void> => {
   const params = DeleteDesignationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

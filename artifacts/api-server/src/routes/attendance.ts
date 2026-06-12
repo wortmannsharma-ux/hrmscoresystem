@@ -18,6 +18,7 @@ import {
   ListOfficeLocationsResponse,
   CreateOfficeLocationBody,
 } from "@workspace/api-zod";
+import { protect, authorize } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -54,12 +55,12 @@ async function getOrCreateSettings() {
 }
 
 // ── Attendance Settings ────────────────────────────────
-router.get("/attendance/settings", async (_req, res): Promise<void> => {
+router.get("/attendance/settings", protect, async (_req, res): Promise<void> => {
   const settings = await getOrCreateSettings();
   res.json(settings);
 });
 
-router.put("/attendance/settings", async (req, res): Promise<void> => {
+router.put("/attendance/settings", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const {
     presentBeforeMins,
     lateBeforeMins,
@@ -87,7 +88,7 @@ router.put("/attendance/settings", async (req, res): Promise<void> => {
 });
 
 // ── Attendance List ────────────────────────────────────
-router.get("/attendance", async (req, res): Promise<void> => {
+router.get("/attendance", protect, async (req, res): Promise<void> => {
   const query = ListAttendanceQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -138,7 +139,7 @@ router.get("/attendance", async (req, res): Promise<void> => {
 });
 
 // ── Day Start (Smart Attendance) ───────────────────────
-router.post("/attendance/day-start", async (req, res): Promise<void> => {
+router.post("/attendance/day-start", protect, async (req, res): Promise<void> => {
   const parsed = DayStartBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -261,7 +262,7 @@ router.post("/attendance/day-start", async (req, res): Promise<void> => {
 });
 
 // ── Day End ────────────────────────────────────────────
-router.post("/attendance/day-end", async (req, res): Promise<void> => {
+router.post("/attendance/day-end", protect, async (req, res): Promise<void> => {
   const parsed = DayEndBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -313,7 +314,7 @@ router.post("/attendance/day-end", async (req, res): Promise<void> => {
 });
 
 // ── Approve Attendance ─────────────────────────────────
-router.patch("/attendance/:id/approve", async (req, res): Promise<void> => {
+router.patch("/attendance/:id/approve", protect, authorize("SUPER_ADMIN", "ADMIN", "HR", "MANAGER"), async (req, res): Promise<void> => {
   const params = ApproveAttendanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -344,7 +345,7 @@ router.patch("/attendance/:id/approve", async (req, res): Promise<void> => {
 });
 
 // ── Attendance Summary ─────────────────────────────────
-router.get("/attendance/summary", async (req, res): Promise<void> => {
+router.get("/attendance/summary", protect, async (req, res): Promise<void> => {
   const query = GetAttendanceSummaryQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -386,7 +387,7 @@ router.get("/attendance/summary", async (req, res): Promise<void> => {
 });
 
 // ── Today's Attendance ─────────────────────────────────
-router.get("/attendance/today", async (_req, res): Promise<void> => {
+router.get("/attendance/today", protect, async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const totalEmployees = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -415,7 +416,7 @@ router.get("/attendance/today", async (_req, res): Promise<void> => {
 });
 
 // ── Office Locations ───────────────────────────────────
-router.get("/office-locations", async (_req, res): Promise<void> => {
+router.get("/office-locations", protect, async (_req, res): Promise<void> => {
   const locs = await db
     .select()
     .from(officeLocationsTable)
@@ -423,7 +424,7 @@ router.get("/office-locations", async (_req, res): Promise<void> => {
   res.json(locs.map((l) => ({ ...l, createdAt: l.createdAt.toISOString() })));
 });
 
-router.post("/office-locations", async (req, res): Promise<void> => {
+router.post("/office-locations", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const parsed = CreateOfficeLocationBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -443,7 +444,7 @@ router.post("/office-locations", async (req, res): Promise<void> => {
   res.status(201).json({ ...loc, createdAt: loc.createdAt.toISOString() });
 });
 
-router.patch("/office-locations/:id", async (req, res): Promise<void> => {
+router.patch("/office-locations/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const id = parseInt(
     Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
     10
@@ -476,7 +477,7 @@ router.patch("/office-locations/:id", async (req, res): Promise<void> => {
   res.json({ ...loc, createdAt: loc.createdAt.toISOString() });
 });
 
-router.delete("/office-locations/:id", async (req, res): Promise<void> => {
+router.delete("/office-locations/:id", protect, authorize("SUPER_ADMIN", "ADMIN", "HR"), async (req, res): Promise<void> => {
   const id = parseInt(
     Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
     10
@@ -497,7 +498,7 @@ router.delete("/office-locations/:id", async (req, res): Promise<void> => {
 });
 
 // ── Live Tracking ──────────────────────────────────────
-router.post("/tracking/location", async (req, res): Promise<void> => {
+router.post("/tracking/location", protect, async (req, res): Promise<void> => {
   const { employeeId, lat, lng, speed, accuracy } = req.body;
   if (!employeeId || lat == null || lng == null) {
     res.status(400).json({ error: "employeeId, lat, lng required" });
@@ -510,43 +511,96 @@ router.post("/tracking/location", async (req, res): Promise<void> => {
   res.json({ ...record, timestamp: record.timestamp.toISOString() });
 });
 
-router.get("/tracking/live", async (_req, res): Promise<void> => {
+router.get("/tracking/live", protect, async (_req, res): Promise<void> => {
+  const today = new Date().toISOString().split("T")[0]!;
+
+  // First try location_tracks (real-time GPS pings)
   const recentLocations = await db.execute(sql`
     SELECT DISTINCT ON (lt.employee_id)
-      lt.employee_id as "employeeId",
-      (e.first_name || ' ' || e.last_name) as "employeeName",
-      d.name as designation,
+      lt.employee_id   AS "employeeId",
+      (e.first_name || ' ' || e.last_name) AS "employeeName",
+      d.name           AS designation,
       lt.lat,
       lt.lng,
       lt.speed,
-      lt.timestamp as "lastUpdated",
-      a.status as "attendanceStatus"
+      lt.timestamp     AS "lastUpdated",
+      'gps'            AS source
     FROM location_tracks lt
     JOIN employees e ON e.id = lt.employee_id
     LEFT JOIN designations d ON d.id = e.designation_id
-    LEFT JOIN attendance a ON a.employee_id = lt.employee_id AND a.date = CURRENT_DATE
     ORDER BY lt.employee_id, lt.timestamp DESC
   `);
 
-  const today = new Date().toISOString().split("T")[0];
+  // Also pull employees who marked attendance today with GPS coordinates
+  // These show up if no live GPS ping exists yet
+  const attendanceLocations = await db.execute(sql`
+    SELECT
+      a.employee_id   AS "employeeId",
+      (e.first_name || ' ' || e.last_name) AS "employeeName",
+      d.name           AS designation,
+      a.check_in_lat  AS lat,
+      a.check_in_lng  AS lng,
+      NULL            AS speed,
+      a.check_in_time AS "lastUpdated",
+      'attendance'    AS source,
+      a.eod_submitted AS "eodSubmitted"
+    FROM attendance a
+    JOIN employees e ON e.id = a.employee_id
+    LEFT JOIN designations d ON d.id = e.designation_id
+    WHERE a.date = ${today}
+      AND a.check_in_lat IS NOT NULL
+      AND a.check_in_lng IS NOT NULL
+  `);
+
+  // Merge: location_track entries take priority; attendance check-in fills gaps
+  const trackIds = new Set(
+    (recentLocations.rows as any[]).map((r) => Number(r.employeeId))
+  );
+
+  const attRows = (attendanceLocations.rows as any[]).filter(
+    (r) => !trackIds.has(Number(r.employeeId))
+  );
+
+  const allRows = [
+    ...(recentLocations.rows as any[]),
+    ...attRows,
+  ];
+
+  // Determine isActive: active = checked-in today AND not yet checked-out
   const todayAtt = await db
-    .select()
+    .select({
+      employeeId: attendanceTable.employeeId,
+      eodSubmitted: attendanceTable.eodSubmitted,
+      checkOutTime: attendanceTable.checkOutTime,
+    })
     .from(attendanceTable)
     .where(eq(attendanceTable.date, today));
 
+  const attMap = new Map(todayAtt.map((a) => [a.employeeId, a]));
+
   res.json(
-    (recentLocations.rows as Record<string, unknown>[]).map((r) => ({
-      ...r,
-      lastUpdated:
-        r.lastUpdated instanceof Date
-          ? (r.lastUpdated as Date).toISOString()
-          : String(r.lastUpdated),
-      isActive: !todayAtt.find((a) => a.employeeId === Number(r.employeeId))?.eodSubmitted,
-    }))
+    allRows.map((r: any) => {
+      const att = attMap.get(Number(r.employeeId));
+      return {
+        employeeId: Number(r.employeeId),
+        employeeName: r.employeeName ?? "",
+        designation: r.designation ?? null,
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        speed: r.speed != null ? Number(r.speed) : null,
+        lastUpdated:
+          r.lastUpdated instanceof Date
+            ? r.lastUpdated.toISOString()
+            : String(r.lastUpdated),
+        // Active = checked in today, has GPS, not yet submitted EOD
+        isActive: att != null && !att.eodSubmitted && att.checkOutTime == null,
+        source: r.source ?? "unknown",
+      };
+    })
   );
 });
 
-router.get("/tracking/travel-summary", async (req, res): Promise<void> => {
+router.get("/tracking/travel-summary", protect, async (req, res): Promise<void> => {
   const date =
     (req.query.date as string) ?? new Date().toISOString().split("T")[0];
   const employeeId = req.query.employeeId

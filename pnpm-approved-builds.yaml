@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 # Approved build scripts for production deployment
 # Generated to allow esbuild and other required packages to run their install scripts
 esbuild@0.27.3: true
 "@swc/core": true
 msw: true
 unrs-resolver: true
+=======
+esbuild@0.27.3:
+  approved: true
+>>>>>>> aalekh

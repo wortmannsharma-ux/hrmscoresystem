@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, ShieldOff } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
 import {
   useListPayroll, useGeneratePayroll, useListSalaryStructures, useCreateSalaryStructure,
   useListEmployees,
@@ -21,6 +22,18 @@ import {
 export default function PayrollPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Hard guard — only SUPER_ADMIN, ADMIN, HR can access payroll
+  if (!["SUPER_ADMIN", "ADMIN", "HR"].includes(user?.role ?? "")) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-3 text-muted-foreground">
+        <ShieldOff className="h-10 w-10 opacity-40" />
+        <p className="text-lg font-medium">Access Denied</p>
+        <p className="text-sm">You don't have permission to view payroll.</p>
+      </div>
+    );
+  }
   const [month, setMonth] = useState<string>(format(new Date(), "yyyy-MM"));
 
   const [isStructureDialog, setIsStructureDialog] = useState(false);
@@ -56,14 +69,24 @@ export default function PayrollPage() {
   });
 
   const handleCreateStructure = () => {
+<<<<<<< HEAD
     const combinedSpecial = (Number(structureData.specialAllowance) || 0) + (Number(structureData.medicalAllowance) || 0);
+=======
+    const specialAllowanceValue = Number(structureData.specialAllowance) + (Number(structureData.medicalAllowance) || 0);
+>>>>>>> aalekh
     createStructure.mutate({
       data: {
         employeeId: Number(structureData.employeeId),
         basic: Number(structureData.basic),
+<<<<<<< HEAD
         hra: Number(structureData.hra) || undefined,
         specialAllowance: combinedSpecial || undefined,
         conveyance: Number(structureData.conveyance) || undefined,
+=======
+        hra: Number(structureData.hra),
+        specialAllowance: specialAllowanceValue || undefined,
+        conveyance: Number(structureData.conveyance),
+>>>>>>> aalekh
         effectiveFrom: structureData.effectiveFrom,
       }
     });

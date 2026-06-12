@@ -71,7 +71,11 @@ export default function VisitsPage() {
       data: {
         employeeId: Number(visitData.employeeId),
         vendorId: Number(visitData.vendorId),
+<<<<<<< HEAD
         selfieUrl: visitData.checkInTime || new Date().toISOString(),
+=======
+        selfieUrl: "https://placehold.co/100x100",
+>>>>>>> aalekh
         lat: visitData.latitude ? Number(visitData.latitude) : undefined,
         lng: visitData.longitude ? Number(visitData.longitude) : undefined,
         orderValue: visitData.orderValue ? Number(visitData.orderValue) : undefined,
@@ -142,7 +146,11 @@ export default function VisitsPage() {
                 <MapPin className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
+<<<<<<< HEAD
                 <div className="text-2xl font-bold">₹{(summary as any)?.collectionAmount ?? summary?.ordersCollected ?? 0}</div>
+=======
+                <div className="text-2xl font-bold">₹{summary?.collectionAmount ?? 0}</div>
+>>>>>>> aalekh
               </CardContent>
             </Card>
           </div>
