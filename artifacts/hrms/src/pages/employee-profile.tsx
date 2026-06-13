@@ -622,15 +622,6 @@ export default function EmployeeProfile() {
       <Card className="overflow-hidden border-t-4 border-t-primary">
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-<<<<<<< HEAD
-            <Avatar className="h-24 w-24 border-4 border-background shadow-md">
-              <AvatarImage src={employee.profilePhoto || undefined} alt={employee.firstName} />
-              <AvatarFallback className="text-2xl bg-primary/10 text-primary font-bold">
-                {employee.firstName?.[0]}{employee.lastName?.[0]}
-              </AvatarFallback>
-            </Avatar>
-            
-=======
             <div className="relative group">
               <Avatar className="h-24 w-24 border-4 border-background shadow-md">
                 <AvatarImage src={employee.profilePhoto || undefined} alt={employee.firstName} />
@@ -647,7 +638,6 @@ export default function EmployeeProfile() {
                 </button>
               )}
             </div>
->>>>>>> aalekh
             <div className="flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-3xl font-bold text-foreground">{employee.firstName} {employee.lastName}</h1>
@@ -663,19 +653,11 @@ export default function EmployeeProfile() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
-<<<<<<< HEAD
-                  <span>{(employee as any).departmentName || 'No Department'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  <span>{(employee as any).designationName || 'No Designation'}</span>
-=======
                   <span>{employee.departmentName || "No Department"}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4" />
                   <span>{employee.designationName || "No Designation"}</span>
->>>>>>> aalekh
                 </div>
                 {(employee as any).managerName && (
                   <div className="flex items-center gap-2">

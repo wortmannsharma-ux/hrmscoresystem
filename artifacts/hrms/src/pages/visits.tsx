@@ -142,11 +142,7 @@ export default function VisitsPage() {
                 <MapPin className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-<<<<<<< HEAD
                 <div className="text-2xl font-bold">₹{(summary as any)?.collectionAmount ?? summary?.ordersCollected ?? 0}</div>
-=======
-                <div className="text-2xl font-bold">₹{summary?.collectionAmount ?? 0}</div>
->>>>>>> aalekh
               </CardContent>
             </Card>
           </div>

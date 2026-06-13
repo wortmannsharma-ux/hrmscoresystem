@@ -585,13 +585,9 @@ export default function Employees() {
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border border-border">
                           <AvatarImage src={emp.profilePhoto || undefined} alt={emp.firstName} />
-<<<<<<< HEAD
                           <AvatarFallback className="bg-primary/10 text-primary font-medium">
                             {emp.firstName?.[0]}{emp.lastName?.[0]}
                           </AvatarFallback>
-=======
-                          <AvatarFallback className="bg-primary/10 text-primary font-medium">{emp.firstName?.[0]}{emp.lastName?.[0]}</AvatarFallback>
->>>>>>> aalekh
                         </Avatar>
                         <div className="flex flex-col">
                           <span className="font-medium text-sm">{emp.firstName} {emp.lastName}</span>
@@ -600,15 +596,9 @@ export default function Employees() {
                       </div>
                     </TableCell>
                     <TableCell className="font-medium text-xs">{emp.employeeId}</TableCell>
-<<<<<<< HEAD
                     <TableCell className="text-sm">{(emp as any).departmentName || 'N/A'}</TableCell>
                     <TableCell className="text-sm">{(emp as any).designationName || 'N/A'}</TableCell>
                     <TableCell className="text-sm">{emp.role}</TableCell>
-=======
-                    <TableCell className="text-sm">{emp.departmentName || "—"}</TableCell>
-                    <TableCell className="text-sm">{emp.designationName || "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{(emp as any).managerName || "—"}</TableCell>
->>>>>>> aalekh
                     <TableCell>
                       <Badge variant="outline" className={emp.status?.toLowerCase() === "active" ? "bg-success/10 text-success border-success/20" : "bg-destructive/10 text-destructive border-destructive/20"}>
                         {emp.status}

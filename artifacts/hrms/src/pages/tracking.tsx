@@ -190,8 +190,6 @@ export default function Tracking() {
 
   const { data: liveLocations = [], isLoading: loadingLive } = useGetLiveLocations();
   const { data: employees = [] } = useListEmployees();
-<<<<<<< HEAD
-=======
 
   const isManager = user?.role === "MANAGER" || user?.role === "TEAM_LEADER";
 
@@ -204,8 +202,6 @@ export default function Tracking() {
   const teamIds = isManager && user?.employeeId
     ? new Set(selectableEmployees.map((e) => e.id))
     : null;
-
->>>>>>> aalekh
   const empId = selectedEmployee !== "all" ? parseInt(selectedEmployee, 10) : undefined;
 
   const { data: travelSummary } = useGetTravelSummary(
@@ -356,27 +352,6 @@ export default function Tracking() {
         </Card>
       </div>
 
-<<<<<<< HEAD
-      {/* Visit summary */}
-      {visitSummary && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Visit Summary — {date}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
-              {[
-                { label: "Total Visits", value: visitSummary.totalVisits, color: "" },
-                { label: "Valid", value: visitSummary.validVisits, color: "text-success" },
-                { label: "Invalid", value: visitSummary.invalidVisits, color: "text-destructive" },
-                { label: "Total KM", value: `${visitSummary.totalKm.toFixed(1)} km`, color: "" },
-                { label: "Orders", value: visitSummary.ordersCollected, color: "" },
-                { label: "Collection", value: visitSummary?.collectionAmount != null ? `₹${visitSummary.collectionAmount.toLocaleString("en-IN")}` : "—", color: "text-success" },
-              ].map((item) => (
-                <div key={item.label} className="rounded-lg border p-3 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-                  <p className={`text-lg font-bold ${item.color}`}>{item.value}</p>
-=======
       {/* Travel + Visit summary */}
       {(travelSummary || visitSummary) && (
         <div className="grid gap-6 md:grid-cols-2">
@@ -401,7 +376,6 @@ export default function Tracking() {
                       <p className="text-lg font-bold">{item.value}</p>
                     </div>
                   ))}
->>>>>>> aalekh
                 </div>
                 {travelSummary.routeSummary && (
                   <div className="rounded-lg border p-3 text-sm">{travelSummary.routeSummary}</div>
