@@ -36,12 +36,23 @@ let _currentToken: string | null = localStorage.getItem(TOKEN_KEY);
 // It always reads the live _currentToken value.
 setAuthTokenGetter(() => _currentToken);
 
+// ── API base URL (set from VITE_API_URL env var in production) ───────────────
+let _apiBaseUrl: string | null = null;
+export function setApiBaseUrl(url: string | null): void {
+  _apiBaseUrl = url ? url.replace(/\/+$/, "") : null;
+}
+
 // ── Helper for raw fetch() calls that bypass the API client ──────────────────
 // Use this anywhere you call fetch("/api/...") directly in pages/components.
+// Automatically prepends the API base URL in production.
 export function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   if (_currentToken && !headers.has("authorization")) {
     headers.set("Authorization", `Bearer ${_currentToken}`);
+  }
+  // Prepend base URL for relative paths (e.g. "/api/users" → "https://render-url/api/users")
+  if (_apiBaseUrl && typeof input === "string" && input.startsWith("/")) {
+    input = `${_apiBaseUrl}${input}`;
   }
   return fetch(input, { ...init, headers });
 }
