@@ -708,20 +708,8 @@ export default function EmployeeProfile() {
                 <ShieldAlert className="h-5 w-5" /> Emergency Contact
               </CardTitle>
             </CardHeader>
-<<<<<<< HEAD
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground mb-1">Contact Name</div>
-                <p className="font-medium">{employee.emergencyContact || 'Not provided'}</p>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground mb-1">Contact Phone</div>
-                <p className="font-medium">{employee.emergencyContact ? 'See contact above' : 'Not provided'}</p>
-              </div>
-=======
             <CardContent>
               <p className="font-medium">{employee.emergencyContact || "Not provided"}</p>
->>>>>>> aalekh
             </CardContent>
           </Card>
         </TabsContent>
@@ -750,24 +738,7 @@ export default function EmployeeProfile() {
                   <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>Bank details are visible only to HR and Admin.</p>
                 </div>
-<<<<<<< HEAD
-                <p className="font-medium">{employee.bankName || 'Not provided'}</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                  <CreditCard className="h-4 w-4" /> Account Number
-                </div>
-                <p className="font-medium tracking-widest">{employee.bankAccount ? '•••• ' + employee.bankAccount.slice(-4) : 'Not provided'}</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                  <Hash className="h-4 w-4" /> IFSC Code
-                </div>
-                <p className="font-medium uppercase tracking-wider">{employee.ifscCode || 'Not provided'}</p>
-              </div>
-=======
               )}
->>>>>>> aalekh
             </CardContent>
           </Card>
         </TabsContent>

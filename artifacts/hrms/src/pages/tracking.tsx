@@ -7,6 +7,10 @@ import { MapPin, Navigation, Users, TrendingUp, Package, Loader2 } from "lucide-
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 
+// Declare the google namespace so TypeScript doesn't error on google.maps.*
+// The actual API is loaded at runtime via a <script> tag
+declare const google: any;
+
 // ── Google Maps API key ───────────────────────────────────────────────────────
 const MAPS_API_KEY = "AIzaSyBn64FSrMCbamU0B-3hhORsqQhq5NPk5ZA";
 
@@ -52,8 +56,8 @@ interface LiveLocation {
 
 function LiveMap({ locations }: { locations: LiveLocation[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<Map<number, google.maps.Marker>>(new Map());
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<Map<number, any>>(new Map());
   const [mapReady, setMapReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
