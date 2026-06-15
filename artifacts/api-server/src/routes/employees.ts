@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-zod";
 import { protect, authorize, ownerOrAuthorize } from "../middlewares/auth.js";
 import { generateEmployeeId } from "../lib/employee-id.js";
+import { uploadToGoogleDrive } from "../lib/google-drive.js";
 
 const router: IRouter = Router();
 
@@ -111,6 +112,15 @@ router.post(
       return;
     }
 
+    let profilePhotoUrl = parsed.data.profilePhoto;
+    if (profilePhotoUrl && profilePhotoUrl.startsWith("data:")) {
+      const fileName = `profile_${parsed.data.firstName}_${parsed.data.lastName}_${Date.now()}.png`;
+      const uploadedUrl = await uploadToGoogleDrive(profilePhotoUrl, "profile", fileName);
+      if (uploadedUrl) {
+        profilePhotoUrl = uploadedUrl;
+      }
+    }
+
     let deptName: string | null = null;
     if (parsed.data.departmentId) {
       const [dept] = await db
@@ -124,7 +134,7 @@ router.post(
 
     const [emp] = await db
       .insert(employeesTable)
-      .values({ ...parsed.data, employeeId })
+      .values({ ...parsed.data, profilePhoto: profilePhotoUrl, employeeId })
       .returning();
 
     // If a user with the same email exists and is not yet linked, auto-link them
@@ -259,6 +269,20 @@ router.patch(
         continue;
       }
       updateData[k] = v;
+    }
+
+    if (updateData.profilePhoto && typeof updateData.profilePhoto === "string" && updateData.profilePhoto.startsWith("data:")) {
+      const [currEmp] = await db
+        .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName })
+        .from(employeesTable)
+        .where(eq(employeesTable.id, params.data.id));
+      const fName = currEmp?.firstName ?? "employee";
+      const lName = currEmp?.lastName ?? params.data.id.toString();
+      const fileName = `profile_${fName}_${lName}_${Date.now()}.png`;
+      const uploadedUrl = await uploadToGoogleDrive(updateData.profilePhoto, "profile", fileName);
+      if (uploadedUrl) {
+        updateData.profilePhoto = uploadedUrl;
+      }
     }
 
     if (Object.keys(updateData).length === 0) {

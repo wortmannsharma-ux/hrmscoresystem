@@ -9,6 +9,7 @@ import {
   ApproveExpenseBody,
 } from "@workspace/api-zod";
 import { protect, authorize } from "../middlewares/auth.js";
+import { uploadToGoogleDrive } from "../lib/google-drive.js";
 
 const router: IRouter = Router();
 
@@ -70,13 +71,22 @@ router.post("/expenses", protect, async (req, res): Promise<void> => {
     amount = parsed.data.travelKm * parsed.data.travelRate;
   }
 
+  let billPhotoUrl = parsed.data.billPhoto;
+  if (billPhotoUrl && billPhotoUrl.startsWith("data:")) {
+    const fileName = `expense_${parsed.data.employeeId}_${parsed.data.category}_${Date.now()}.png`;
+    const uploadedUrl = await uploadToGoogleDrive(billPhotoUrl, "expense", fileName);
+    if (uploadedUrl) {
+      billPhotoUrl = uploadedUrl;
+    }
+  }
+
   const [expense] = await db.insert(expensesTable).values({
     employeeId: parsed.data.employeeId,
     category: parsed.data.category,
     amount,
     date: parsed.data.date,
     description: parsed.data.description ?? undefined,
-    billPhoto: parsed.data.billPhoto ?? undefined,
+    billPhoto: billPhotoUrl ?? undefined,
     isAutoTravel: parsed.data.isAutoTravel ?? false,
     travelKm: parsed.data.travelKm ?? undefined,
     travelRate: parsed.data.travelRate ?? undefined,
