@@ -38,7 +38,7 @@ export default function LoginPage() {
             className="mx-auto h-20 w-auto object-contain mb-4"
           />
           <h1 className="text-3xl font-bold tracking-tight">HRMS Pro</h1>
-          <p className="text-muted-foreground text-sm">ALL VIEW INDIA</p>
+          <p className="text-muted-foreground text-sm">ALLVIEW INDIA</p>
         </div>
 
         <Card>
