@@ -28,9 +28,10 @@ function getDriveClient() {
       throw new Error("Expected service account JSON string starting with '{'. Please paste the JSON key content.");
     }
 
+    const privateKey = credentials.private_key.replace(/\\n/g, "\n");
     const auth = new google.auth.JWT({
       email: credentials.client_email,
-      key: credentials.private_key,
+      key: privateKey,
       scopes: ["https://www.googleapis.com/auth/drive"],
     });
 

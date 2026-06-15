@@ -24,6 +24,7 @@ import { Users, UserCheck, UserX, Clock, MapPin, Plus, Pencil, Trash2, Settings,
 import { SmartAttendanceModal } from "@/components/smart-attendance-modal";
 import { useAuth, authFetch } from "@/lib/auth-context";
 import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
+import { SearchableEmployeeSelect } from "@/components/ui/searchable-employee-select";
 
 const DEFAULT_SETTINGS = {
   presentBeforeMins: 570,
@@ -375,19 +376,14 @@ export default function AttendancePage() {
               data-testid="filter-month"
             />
             {!isEmployee && (
-              <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-                <SelectTrigger className="w-[200px]" data-testid="filter-employee">
-                  <SelectValue placeholder="All Employees" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Employees</SelectItem>
-                  {employeesList.map((emp: any) => (
-                    <SelectItem key={emp.id} value={emp.id.toString()}>
-                      {emp.firstName} {emp.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableEmployeeSelect
+                employees={employeesList}
+                value={employeeFilter}
+                onValueChange={setEmployeeFilter}
+                placeholder="Filter by employee..."
+                className="w-[200px]"
+                allowAll
+              />
             )}
           </div>
 
@@ -788,18 +784,12 @@ export default function AttendancePage() {
             {!isEmployee && (
               <div className="space-y-2">
                 <Label>Employee</Label>
-                <Select value={endData.employeeId} onValueChange={(v) => setEndData({ ...endData, employeeId: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select employee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employeesList.map((emp: any) => (
-                      <SelectItem key={emp.id} value={emp.id.toString()}>
-                        {emp.firstName} {emp.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableEmployeeSelect
+                  employees={employeesList}
+                  value={endData.employeeId}
+                  onValueChange={(v) => setEndData({ ...endData, employeeId: v })}
+                  placeholder="Search employee..."
+                />
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">

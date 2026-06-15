@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { IndianRupee, FileText, CheckCircle, Paperclip, ExternalLink } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
+import { SearchableEmployeeSelect } from "@/components/ui/searchable-employee-select";
 
 export default function ExpensesPage() {
   const { toast } = useToast();
@@ -181,14 +182,12 @@ export default function ExpensesPage() {
               {!isEmployee && (
                 <div className="grid gap-2">
                   <Label htmlFor="emp">Employee</Label>
-                  <Select value={submitData.employeeId} onValueChange={v => setSubmitData({...submitData, employeeId: v})}>
-                    <SelectTrigger id="emp"><SelectValue placeholder="Select employee" /></SelectTrigger>
-                    <SelectContent>
-                      {employees.map((emp: any) => (
-                        <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableEmployeeSelect
+                    employees={employees}
+                    value={submitData.employeeId}
+                    onValueChange={(v) => setSubmitData({ ...submitData, employeeId: v })}
+                    placeholder="Search employee..."
+                  />
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
@@ -307,17 +306,14 @@ export default function ExpensesPage() {
       <div className="flex flex-wrap items-center gap-4 py-4">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[200px]" />
         {!isEmployee && (
-          <Select value={employeeId} onValueChange={setEmployeeId}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All Employees" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Employees</SelectItem>
-              {employees.map((emp: any) => (
-                <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableEmployeeSelect
+            employees={employees}
+            value={employeeId}
+            onValueChange={setEmployeeId}
+            placeholder="Filter by employee..."
+            className="w-[200px]"
+            allowAll
+          />
         )}
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-[160px]">

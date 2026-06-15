@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableEmployeeSelect } from "./ui/searchable-employee-select";
 import { Camera, MapPin, CheckCircle, AlertTriangle, XCircle, Clock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -233,19 +234,12 @@ export function SmartAttendanceModal({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Select Employee</Label>
-              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose employee..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id.toString()}>
-                      {emp.firstName} {emp.lastName}
-                      <span className="text-muted-foreground ml-1">({emp.role})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableEmployeeSelect
+                employees={employees}
+                value={selectedEmployee}
+                onValueChange={setSelectedEmployee}
+                placeholder="Choose employee..."
+              />
             </div>
 
             {selectedEmp && (

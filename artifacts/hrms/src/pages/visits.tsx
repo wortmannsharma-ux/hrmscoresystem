@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableEmployeeSelect } from "@/components/ui/searchable-employee-select";
 import { useToast } from "@/hooks/use-toast";
 import {
   useListVisits, useCreateVisit, useGetVisitSummary,
@@ -171,14 +172,12 @@ export default function VisitsPage() {
                     <div className="grid gap-4 py-4">
                       <div className="grid gap-2">
                         <Label>Employee</Label>
-                        <Select value={visitData.employeeId} onValueChange={v => setVisitData({ ...visitData, employeeId: v })}>
-                          <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                          <SelectContent>
-                            {employees?.map(emp => (
-                              <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableEmployeeSelect
+                          employees={employees || []}
+                          value={visitData.employeeId}
+                          onValueChange={(v) => setVisitData({ ...visitData, employeeId: v })}
+                          placeholder="Search employee..."
+                        />
                       </div>
                       <div className="grid gap-2">
                         <Label>Vendor</Label>

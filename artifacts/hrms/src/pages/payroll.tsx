@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableEmployeeSelect } from "@/components/ui/searchable-employee-select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -177,14 +178,12 @@ export default function PayrollPage() {
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
                       <Label>Employee *</Label>
-                      <Select value={structureData.employeeId} onValueChange={v => setStructureData({ ...structureData, employeeId: v })}>
-                        <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                        <SelectContent>
-                          {employees?.map(emp => (
-                            <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableEmployeeSelect
+                        employees={employees || []}
+                        value={structureData.employeeId}
+                        onValueChange={(v) => setStructureData({ ...structureData, employeeId: v })}
+                        placeholder="Search employee..."
+                      />
                     </div>
                     <div className="grid gap-2">
                       <Label>Effective From</Label>

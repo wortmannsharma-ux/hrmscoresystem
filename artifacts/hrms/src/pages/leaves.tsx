@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import { Check, X } from "lucide-react";
 import { PaginationBar, usePagination } from "@/components/ui/pagination-bar";
+import { SearchableEmployeeSelect } from "@/components/ui/searchable-employee-select";
 
 export default function LeavesPage() {
   const { toast } = useToast();
@@ -262,19 +263,12 @@ export default function LeavesPage() {
               {!isEmployee && (
                 <div className="grid gap-2">
                   <Label>Employee *</Label>
-                  <Select value={applyData.employeeId} onValueChange={(v) => setApplyData({ ...applyData, employeeId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                    <SelectContent>
-                      {(isManager
-                        ? allEmployees.filter((e: any) => e.managerId === user?.employeeId)
-                        : allEmployees
-                      ).map((emp: any) => (
-                        <SelectItem key={emp.id} value={emp.id.toString()}>
-                          {emp.firstName} {emp.lastName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableEmployeeSelect
+                    employees={isManager ? allEmployees.filter((e: any) => e.managerId === user?.employeeId) : allEmployees}
+                    value={applyData.employeeId}
+                    onValueChange={(v) => setApplyData({ ...applyData, employeeId: v })}
+                    placeholder="Search employee..."
+                  />
                 </div>
               )}
               <div className="grid gap-2">
@@ -340,15 +334,14 @@ export default function LeavesPage() {
             />
             {!isEmployee && (
               <>
-                <Select value={employeeId} onValueChange={setEmployeeId}>
-                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Employees" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Employees</SelectItem>
-                    {employees.map((emp: any) => (
-                      <SelectItem key={emp.id} value={emp.id.toString()}>{emp.firstName} {emp.lastName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableEmployeeSelect
+                  employees={employees}
+                  value={employeeId}
+                  onValueChange={setEmployeeId}
+                  placeholder="Filter by employee..."
+                  className="w-[200px]"
+                  allowAll
+                />
                 <Select value={status} onValueChange={setStatus}>
                   <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Status" /></SelectTrigger>
                   <SelectContent>
