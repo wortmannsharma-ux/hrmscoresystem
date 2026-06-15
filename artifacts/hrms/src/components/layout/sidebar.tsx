@@ -15,6 +15,7 @@ import {
   Receipt,
   ShieldCheck,
   UserCircle,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -117,7 +118,11 @@ const ALL_NAV = [
 ] as const;
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
@@ -133,6 +138,7 @@ export function Sidebar() {
   const handleLogout = () => {
     logout();
     queryClient.clear();
+    if (onClose) onClose();
   };
 
   const initials = user
@@ -157,15 +163,26 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-sidebar">
+    <div className="flex h-full w-full flex-col border-r bg-sidebar">
       {/* Logo */}
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-14 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2 font-bold text-lg text-primary tracking-tight">
-          <div className="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-xs">
-            H
-          </div>
+          <img
+            src="/AllViewHRM.png"
+            alt="AllView HRM Logo"
+            className="h-8 w-auto object-contain"
+          />
           HRMS Pro
         </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden p-1 rounded-md hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+            aria-label="Close sidebar"
+          >
+            <X className="h-5 w-5 text-sidebar-foreground/70 hover:text-sidebar-foreground" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -180,6 +197,7 @@ export function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={onClose}
                 className={cn(
                   "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive
