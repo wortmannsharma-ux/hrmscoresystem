@@ -36,7 +36,7 @@ export default function LoginPage() {
             H
           </div>
           <h1 className="text-3xl font-bold tracking-tight">HRMS Pro</h1>
-          <p className="text-muted-foreground text-sm">Innoven Global HR Command Center</p>
+          <p className="text-muted-foreground text-sm">ALL VIEW INDIA</p>
         </div>
 
         <Card>
