@@ -32,9 +32,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo / Brand */}
         <div className="text-center space-y-2">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground text-2xl font-bold shadow-md">
-            H
-          </div>
+          <img
+            src="/AllViewHRM.png"
+            alt="AllView HRM Logo"
+            className="mx-auto h-20 w-auto object-contain mb-4"
+          />
           <h1 className="text-3xl font-bold tracking-tight">HRMS Pro</h1>
           <p className="text-muted-foreground text-sm">ALL VIEW INDIA</p>
         </div>
