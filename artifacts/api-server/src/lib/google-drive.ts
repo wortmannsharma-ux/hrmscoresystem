@@ -42,17 +42,17 @@ function getDriveClient() {
   }
 }
 
-/**
- * Parses a base64 data URI into a Buffer and MimeType
- */
 function parseBase64Data(dataURI: string) {
-  const matches = dataURI.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-  if (!matches || matches.length !== 3) {
+  const parts = dataURI.split(";base64,");
+  if (parts.length !== 2) {
     throw new Error("Invalid base64 data URI format");
   }
+  const mimeType = parts[0].replace(/^data:/, "");
+  // Trim any trailing/leading whitespaces or newlines
+  const base64Data = parts[1].trim();
   return {
-    mimeType: matches[1],
-    buffer: Buffer.from(matches[2], "base64"),
+    mimeType,
+    buffer: Buffer.from(base64Data, "base64"),
   };
 }
 
